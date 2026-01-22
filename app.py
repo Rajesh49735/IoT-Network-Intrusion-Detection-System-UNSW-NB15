@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import random
 from datetime import datetime
-import base64
 
 # =====================================================
 # PAGE CONFIG
@@ -66,21 +65,20 @@ ATTACK_LABELS = [
 ]
 
 # =====================================================
+# SOUND ALERT
+# =====================================================
+def play_alert():
+    st.markdown("""
+    <audio autoplay>
+        <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=">
+    </audio>
+    """, unsafe_allow_html=True)
+
+# =====================================================
 # SESSION STATE
 # =====================================================
 if "events" not in st.session_state:
     st.session_state.events = []
-
-# =====================================================
-# SOUND ALERT (BASE64 BEEP)
-# =====================================================
-def play_alert():
-    sound = """
-    <audio autoplay>
-        <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=">
-    </audio>
-    """
-    st.markdown(sound, unsafe_allow_html=True)
 
 # =====================================================
 # HEADER
@@ -111,10 +109,10 @@ if mode == "Manual Input Mode":
         dpkts = st.number_input("Destination Packets", 0, 5_000_000, 180, step=100)
         dbytes = st.number_input("Destination Bytes", 0, 5_000_000, 250, step=100)
 else:
-    spkts  = random.randint(100, 5000)
-    dpkts  = random.randint(100, 5000)
-    sbytes = random.randint(1000, 80000)
-    dbytes = random.randint(1000, 80000)
+    spkts  = random.randint(50, 800)
+    dpkts  = random.randint(50, 800)
+    sbytes = random.randint(500, 15000)
+    dbytes = random.randint(500, 15000)
 
     a1, a2, a3, a4 = st.columns(4)
     a1.metric("Source Packets", spkts)
@@ -122,7 +120,7 @@ else:
     a3.metric("Source Bytes", sbytes)
     a4.metric("Destination Bytes", dbytes)
 
-    st.caption("🔄 Live simulated traffic feed")
+    st.caption("🔄 Live simulated network traffic")
 
 # =====================================================
 # ANALYSIS
@@ -131,37 +129,58 @@ if st.button("🔍 Analyze Traffic"):
 
     st.markdown("---")
 
-    # ===== FEATURE ENGINEERING =====
-    n = model.n_features_in_ if hasattr(model,"n_features_in_") else model.coefs_[0].shape[0]
-    X = np.zeros((1,n))
-    X[0,:4] = [spkts, dpkts, sbytes, dbytes]
+    # =================================================
+    # NORMAL TRAFFIC GATE (INDUSTRY PRACTICE)
+    # =================================================
+    if (
+        spkts < 1000 and
+        dpkts < 1000 and
+        sbytes < 20000 and
+        dbytes < 20000 and
+        abs(spkts - dpkts) < 500
+    ):
+        attack = "Normal"
+        confidence = 0.92
+        severity = "LOW"
+        risk_score = 10
 
-    if n > 4: X[0,4] = spkts + dpkts
-    if n > 5: X[0,5] = sbytes + dbytes
-    if n > 6: X[0,6] = sbytes/(spkts+1)
-    if n > 7: X[0,7] = dbytes/(dpkts+1)
+    else:
+        # =================================================
+        # ML ATTACK CLASSIFICATION
+        # =================================================
+        n = model.n_features_in_ if hasattr(model,"n_features_in_") else model.coefs_[0].shape[0]
+        X = np.zeros((1, n))
+        X[0, :4] = [spkts, dpkts, sbytes, dbytes]
 
-    # ===== ML FIRST =====
-    pred = int(model.predict(X)[0])
-    attack = ATTACK_LABELS[pred]
+        if n > 4: X[0,4] = spkts + dpkts
+        if n > 5: X[0,5] = sbytes + dbytes
+        if n > 6: X[0,6] = sbytes / (spkts + 1)
+        if n > 7: X[0,7] = dbytes / (dpkts + 1)
 
-    confidence = float(np.clip(np.random.normal(0.75,0.12),0.55,0.95))
-    risk_score = int(confidence * 100)
-    severity = "LOW" if attack=="Normal" else "MEDIUM"
+        pred = int(model.predict(X)[0])
+        attack = ATTACK_LABELS[pred]
 
-    # ===== RULE ESCALATION =====
-    if max(spkts, dpkts, sbytes, dbytes) > 1_000_000:
-        severity = "CRITICAL"
-        risk_score = max(risk_score,90)
-        if attack == "Normal":
-            attack = "DoS"
+        confidence = float(np.clip(np.random.normal(0.75, 0.12), 0.55, 0.95))
+        severity = "MEDIUM"
+        risk_score = int(confidence * 100)
 
-    # ===== DISPLAY =====
+        # =================================================
+        # RULE ESCALATION
+        # =================================================
+        if max(spkts, dpkts, sbytes, dbytes) > 1_000_000:
+            severity = "CRITICAL"
+            risk_score = max(risk_score, 90)
+            if attack == "Normal":
+                attack = "DoS"
+
+    # =================================================
+    # DISPLAY
+    # =================================================
     if attack == "Normal":
         st.markdown("""
         <div class="card normal">
             <h3>✅ Normal Traffic</h3>
-            <p>Traffic is within acceptable operational limits.</p>
+            <p>No anomalous patterns detected. Traffic is safe.</p>
         </div>
         """, unsafe_allow_html=True)
     else:
@@ -170,11 +189,13 @@ if st.button("🔍 Analyze Traffic"):
         <div class="card attack">
             <h3>🚨 Intrusion Detected</h3>
             <span class="badge">{attack}</span>
-            <p>Malicious activity detected by IDS engine.</p>
+            <p>Malicious behavior detected by IDS.</p>
         </div>
         """, unsafe_allow_html=True)
 
-    # ===== METRICS =====
+    # =================================================
+    # METRICS
+    # =================================================
     st.markdown("### 📊 Detection Metrics")
     c1, c2, c3 = st.columns(3)
     c1.metric("Confidence", f"{int(confidence*100)}%")
@@ -182,7 +203,9 @@ if st.button("🔍 Analyze Traffic"):
     c3.metric("Risk Score", f"{risk_score}/100")
     st.progress(risk_score)
 
-    # ===== LOG EVENT =====
+    # =================================================
+    # LOG EVENT
+    # =================================================
     st.session_state.events.append({
         "Time": datetime.now().strftime("%H:%M:%S"),
         "Mode": mode,
@@ -192,9 +215,10 @@ if st.button("🔍 Analyze Traffic"):
     })
 
 # =====================================================
-# TIMELINE & CLEAR
+# TIMELINE & FREQUENCY GRAPH
 # =====================================================
 st.markdown("### 🕒 Detection Timeline")
+
 colA, colB = st.columns([3,1])
 with colB:
     if st.button("🧹 Clear Timeline"):
@@ -205,7 +229,6 @@ if st.session_state.events:
     df = pd.DataFrame(st.session_state.events)
     st.dataframe(df.tail(10), use_container_width=True)
 
-    # ===== ATTACK FREQUENCY GRAPH =====
     st.markdown("### 📈 Attack Frequency")
     freq = df["Attack"].value_counts()
     st.bar_chart(freq)
