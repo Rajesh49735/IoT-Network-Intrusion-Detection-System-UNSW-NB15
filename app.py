@@ -127,7 +127,6 @@ else:
 if st.button("🔍 Analyze Traffic"):
     st.markdown("---")
 
-    # ---------------- RISK SCORE ----------------
     score = (
         0.3 * min(spkts/2000,1) +
         0.3 * min(dpkts/2000,1) +
@@ -147,7 +146,6 @@ if st.button("🔍 Analyze Traffic"):
     if imbalance > 0.3:
         explanation.append("Traffic imbalance observed")
 
-    # ---------------- NORMAL VS ATTACK ----------------
     if score < 0.45:
         attack="Normal"
         severity="LOW"
@@ -155,7 +153,7 @@ if st.button("🔍 Analyze Traffic"):
         confidence=0.88
         box="normal"
     else:
-        n = model.n_features_in_ if hasattr(model,"n_features_in_") else model.coefs_[0].shape[0]
+        n = model.n_features_in_
         X=np.zeros((1,n))
         X[0,:4]=[spkts,dpkts,sbytes,dbytes]
         pred=int(model.predict(X)[0])
@@ -172,7 +170,6 @@ if st.button("🔍 Analyze Traffic"):
 
         play_alert()
 
-    # ---------------- DISPLAY ----------------
     st.markdown(f"""
     <div class="card {box}">
         <h3>{'✅ Normal Traffic' if attack=='Normal' else '🚨 Intrusion Detected'}</h3>
@@ -180,14 +177,14 @@ if st.button("🔍 Analyze Traffic"):
     </div>
     """, unsafe_allow_html=True)
 
-    # ---------------- METRICS ----------------
     c1,c2,c3 = st.columns(3)
     c1.metric("Confidence", f"{int(confidence*100)}%")
     c2.metric("Severity", severity)
     c3.metric("Risk Score", f"{risk}/100")
-    st.progress(risk)
 
-    # ---------------- EXPLAINABLE AI ----------------
+    # ✅ FIXED PROGRESS BAR
+    st.progress(risk / 100)
+
     with st.expander("🧠 Why this decision? (Explainable AI)"):
         if attack=="Normal":
             st.write("Traffic parameters are within expected operational thresholds.")
@@ -196,7 +193,6 @@ if st.button("🔍 Analyze Traffic"):
                 st.write("•", r)
             st.write("• Classified by ML model based on learned attack patterns")
 
-    # ---------------- LOG ----------------
     st.session_state.events.append({
         "Time":datetime.now().strftime("%H:%M:%S"),
         "Attack":attack,
@@ -205,10 +201,9 @@ if st.button("🔍 Analyze Traffic"):
     })
 
 # =====================================================
-# TIMELINE & PROFESSIONAL FREQ GRAPH
+# TIMELINE
 # =====================================================
 st.markdown("### 🕒 Detection Timeline")
-
 colA,colB=st.columns([3,1])
 with colB:
     if st.button("🧹 Clear Timeline"):
@@ -219,10 +214,10 @@ if st.session_state.events:
     df=pd.DataFrame(st.session_state.events)
     st.dataframe(df.tail(10),use_container_width=True)
 
-    st.markdown("### 📈 Attack Frequency (SOC View)")
+    st.markdown("### 📈 Attack Frequency")
     freq=df["Attack"].value_counts().reset_index()
     freq.columns=["Attack Type","Count"]
-    st.dataframe(freq,hide_index=True,use_container_width=True)
+    st.dataframe(freq,use_container_width=True)
 else:
     st.info("No detection events yet.")
 
