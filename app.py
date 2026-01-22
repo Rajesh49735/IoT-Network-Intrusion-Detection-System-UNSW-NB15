@@ -103,16 +103,16 @@ st.markdown("### 🔌 Network Traffic Data")
 if mode == "Manual Input Mode":
     col1, col2 = st.columns(2)
     with col1:
-        spkts = st.number_input("Source Packets", 0, 5_000_000, 200, step=100)
-        sbytes = st.number_input("Source Bytes", 0, 5_000_000, 300, step=100)
+        spkts = st.number_input("Source Packets", 0, 5_000_000, 300, step=100)
+        sbytes = st.number_input("Source Bytes", 0, 5_000_000, 600, step=200)
     with col2:
-        dpkts = st.number_input("Destination Packets", 0, 5_000_000, 180, step=100)
-        dbytes = st.number_input("Destination Bytes", 0, 5_000_000, 250, step=100)
+        dpkts = st.number_input("Destination Packets", 0, 5_000_000, 280, step=100)
+        dbytes = st.number_input("Destination Bytes", 0, 5_000_000, 550, step=200)
 else:
-    spkts  = random.randint(50, 800)
-    dpkts  = random.randint(50, 800)
-    sbytes = random.randint(500, 15000)
-    dbytes = random.randint(500, 15000)
+    spkts  = random.randint(100, 3000)
+    dpkts  = random.randint(100, 3000)
+    sbytes = random.randint(1000, 60000)
+    dbytes = random.randint(1000, 60000)
 
     a1, a2, a3, a4 = st.columns(4)
     a1.metric("Source Packets", spkts)
@@ -120,7 +120,7 @@ else:
     a3.metric("Source Bytes", sbytes)
     a4.metric("Destination Bytes", dbytes)
 
-    st.caption("🔄 Live simulated network traffic")
+    st.caption("🔄 Live simulated traffic")
 
 # =====================================================
 # ANALYSIS
@@ -130,19 +130,26 @@ if st.button("🔍 Analyze Traffic"):
     st.markdown("---")
 
     # =================================================
-    # NORMAL TRAFFIC GATE (INDUSTRY PRACTICE)
+    # TRAFFIC RISK SCORE (BALANCED ~60/40)
     # =================================================
-    if (
-        spkts < 1000 and
-        dpkts < 1000 and
-        sbytes < 20000 and
-        dbytes < 20000 and
-        abs(spkts - dpkts) < 500
-    ):
+    traffic_score = (
+        0.3 * min(spkts / 2000, 1) +
+        0.3 * min(dpkts / 2000, 1) +
+        0.2 * min(sbytes / 40000, 1) +
+        0.2 * min(dbytes / 40000, 1)
+    )
+
+    imbalance = abs(spkts - dpkts) / (spkts + dpkts + 1)
+    traffic_score += min(imbalance, 0.5)
+
+    # =================================================
+    # NORMAL VS ATTACK DECISION
+    # =================================================
+    if traffic_score < 0.45:
         attack = "Normal"
-        confidence = 0.92
+        confidence = 0.88
         severity = "LOW"
-        risk_score = 10
+        risk_score = int(traffic_score * 40)
 
     else:
         # =================================================
@@ -160,16 +167,17 @@ if st.button("🔍 Analyze Traffic"):
         pred = int(model.predict(X)[0])
         attack = ATTACK_LABELS[pred]
 
-        confidence = float(np.clip(np.random.normal(0.75, 0.12), 0.55, 0.95))
-        severity = "MEDIUM"
+        confidence = float(np.clip(np.random.normal(0.72, 0.15), 0.55, 0.95))
         risk_score = int(confidence * 100)
+        severity = "MEDIUM"
 
-        # =================================================
-        # RULE ESCALATION
-        # =================================================
+        if traffic_score > 0.75:
+            severity = "HIGH"
+            risk_score = max(risk_score, 80)
+
         if max(spkts, dpkts, sbytes, dbytes) > 1_000_000:
             severity = "CRITICAL"
-            risk_score = max(risk_score, 90)
+            risk_score = 95
             if attack == "Normal":
                 attack = "DoS"
 
@@ -180,7 +188,7 @@ if st.button("🔍 Analyze Traffic"):
         st.markdown("""
         <div class="card normal">
             <h3>✅ Normal Traffic</h3>
-            <p>No anomalous patterns detected. Traffic is safe.</p>
+            <p>Traffic is operating within safe thresholds.</p>
         </div>
         """, unsafe_allow_html=True)
     else:
@@ -189,7 +197,7 @@ if st.button("🔍 Analyze Traffic"):
         <div class="card attack">
             <h3>🚨 Intrusion Detected</h3>
             <span class="badge">{attack}</span>
-            <p>Malicious behavior detected by IDS.</p>
+            <p>Suspicious behavior detected by IDS engine.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -230,8 +238,7 @@ if st.session_state.events:
     st.dataframe(df.tail(10), use_container_width=True)
 
     st.markdown("### 📈 Attack Frequency")
-    freq = df["Attack"].value_counts()
-    st.bar_chart(freq)
+    st.bar_chart(df["Attack"].value_counts())
 else:
     st.info("No detection events yet.")
 
