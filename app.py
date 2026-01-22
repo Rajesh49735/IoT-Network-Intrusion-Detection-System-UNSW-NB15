@@ -3,67 +3,97 @@ import pickle
 import numpy as np
 
 # =====================================================
-# Page Configuration
+# Page Config
 # =====================================================
 st.set_page_config(
-    page_title="IoT Network Intrusion Detection",
+    page_title="IoT Intrusion Detection",
     page_icon="🛡️",
     layout="centered"
 )
 
 # =====================================================
-# Custom CSS (Colors + 3D Effects)
+# ULTRA-PRO CYBER CSS
 # =====================================================
 st.markdown("""
 <style>
-/* Background */
+
+/* ===== BACKGROUND ===== */
 .stApp {
-    background: radial-gradient(circle at top, #0f2027, #203a43, #2c5364);
-    color: white;
+    background: radial-gradient(circle at top, #0b1f2a, #09161f, #050b10);
+    color: #e6f1ff;
+    font-family: 'Segoe UI', sans-serif;
 }
 
-/* Titles */
-h1, h2, h3 {
-    text-shadow: 0px 6px 18px rgba(0,0,0,0.6);
+/* ===== MAIN HEADING ===== */
+h1 {
+    font-size: 3rem;
+    background: linear-gradient(90deg, #00e5ff, #7c4dff, #00e5ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0px 0px 25px rgba(0,229,255,0.6);
 }
 
-/* Input Cards */
+/* ===== SUBTITLE ===== */
+h2 {
+    color: #b3ecff;
+    text-shadow: 0px 4px 18px rgba(0,0,0,0.8);
+}
+
+/* ===== GLASS CARDS ===== */
 div[data-testid="stNumberInput"] > div {
-    background: rgba(255,255,255,0.06);
-    border-radius: 16px;
-    padding: 12px;
-    box-shadow: 0px 10px 28px rgba(0,0,0,0.35);
-    transition: transform 0.3s ease;
+    background: rgba(255,255,255,0.07);
+    backdrop-filter: blur(12px);
+    border-radius: 18px;
+    padding: 14px;
+    box-shadow:
+        inset 0 0 12px rgba(255,255,255,0.08),
+        0 18px 40px rgba(0,0,0,0.65);
+    transition: all 0.35s ease;
 }
 
+/* Hover 3D lift */
 div[data-testid="stNumberInput"] > div:hover {
-    transform: translateY(-4px);
+    transform: translateY(-6px) scale(1.01);
+    box-shadow:
+        inset 0 0 14px rgba(255,255,255,0.12),
+        0 28px 60px rgba(0,229,255,0.35);
 }
 
-/* Button */
+/* ===== BUTTON ===== */
 .stButton button {
-    background: linear-gradient(145deg, #00c6ff, #0072ff);
+    background: linear-gradient(145deg, #00e5ff, #2979ff);
     color: white;
-    border-radius: 16px;
-    padding: 12px 30px;
-    font-size: 16px;
-    box-shadow: 0px 10px 25px rgba(0,0,0,0.45);
+    border-radius: 22px;
+    padding: 14px 36px;
+    font-size: 18px;
+    font-weight: 600;
+    box-shadow:
+        0 10px 35px rgba(0,229,255,0.6),
+        inset 0 0 10px rgba(255,255,255,0.25);
     transition: all 0.3s ease;
 }
 
+/* Button hover glow */
 .stButton button:hover {
-    transform: scale(1.05);
-    background: linear-gradient(145deg, #0072ff, #00c6ff);
+    transform: scale(1.08);
+    background: linear-gradient(145deg, #2979ff, #00e5ff);
+    box-shadow:
+        0 18px 60px rgba(124,77,255,0.8),
+        inset 0 0 14px rgba(255,255,255,0.35);
 }
 
-/* Alerts */
+/* ===== ALERTS ===== */
 .stAlert {
-    border-radius: 18px;
-    box-shadow: 0px 14px 32px rgba(0,0,0,0.5);
+    border-radius: 20px;
+    backdrop-filter: blur(8px);
+    box-shadow:
+        inset 0 0 12px rgba(255,255,255,0.1),
+        0 18px 45px rgba(0,0,0,0.7);
 }
 
-/* Footer hide */
+/* ===== FOOTER ===== */
 footer {visibility: hidden;}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -73,7 +103,7 @@ footer {visibility: hidden;}
 model = pickle.load(open("models/mlp_multi.pkl", "rb"))
 
 # =====================================================
-# UI Content
+# UI
 # =====================================================
 st.title("🛡️ IoT Network Intrusion Detection System")
 st.subheader("Real-Time Intrusion Detection Using Machine Learning")
@@ -81,7 +111,7 @@ st.subheader("Real-Time Intrusion Detection Using Machine Learning")
 st.write("Enter network traffic values:")
 
 # =====================================================
-# User Inputs
+# Inputs
 # =====================================================
 spkts = st.number_input("Source Packets", min_value=0, value=200)
 dpkts = st.number_input("Destination Packets", min_value=0, value=180)
@@ -89,80 +119,53 @@ sbytes = st.number_input("Source Bytes", min_value=0, value=300)
 dbytes = st.number_input("Destination Bytes", min_value=0, value=250)
 
 # =====================================================
-# Detection Logic
+# Detection
 # =====================================================
 if st.button("Detect Intrusion"):
 
-    # -------------------------------
-    # Rule-Based Detection
-    # -------------------------------
-    if (
-        spkts > 1_000_000
-        or dpkts > 1_000_000
-        or sbytes > 1_000_000
-        or dbytes > 1_000_000
-    ):
-        st.error("🚨 Intrusion Detected (Traffic Spike Anomaly)")
-        st.caption("Rule-based anomaly detection triggered due to abnormal traffic volume.")
+    # Rule-based spike detection
+    if spkts > 1_000_000 or dpkts > 1_000_000 or sbytes > 1_000_000 or dbytes > 1_000_000:
+        st.error("🚨 Intrusion Detected — High-Volume Traffic Anomaly")
+        st.caption("Rule-based detection triggered due to abnormal traffic spike.")
 
     else:
-        # -------------------------------
-        # Feature Size Handling
-        # -------------------------------
+        # Feature count
         if hasattr(model, "n_features_in_"):
             n_features = model.n_features_in_
         else:
             n_features = model.coefs_[0].shape[0]
 
-        # -------------------------------
-        # Feature Vector Creation
-        # -------------------------------
-        input_data = np.zeros((1, n_features), dtype=float)
+        # Feature vector
+        X = np.zeros((1, n_features))
+        X[0, 0:4] = [spkts, dpkts, sbytes, dbytes]
 
-        # Base features
-        input_data[0, 0] = spkts
-        input_data[0, 1] = dpkts
-        input_data[0, 2] = sbytes
-        input_data[0, 3] = dbytes
-
-        # Derived features
         if n_features > 4:
-            input_data[0, 4] = spkts + dpkts
+            X[0, 4] = spkts + dpkts
         if n_features > 5:
-            input_data[0, 5] = sbytes + dbytes
+            X[0, 5] = sbytes + dbytes
         if n_features > 6:
-            input_data[0, 6] = sbytes / (spkts + 1)
+            X[0, 6] = sbytes / (spkts + 1)
         if n_features > 7:
-            input_data[0, 7] = dbytes / (dpkts + 1)
+            X[0, 7] = dbytes / (dpkts + 1)
+
         if n_features > 8:
-            input_data[0, 8] = abs(spkts - dpkts)
-        if n_features > 9:
-            input_data[0, 9] = abs(sbytes - dbytes)
+            X[0, 8:] = np.random.normal(0, 0.01, n_features - 8)
 
-        # Remaining features
-        if n_features > 10:
-            input_data[0, 10:] = np.random.normal(
-                loc=0.0, scale=0.01, size=(n_features - 10)
-            )
+        # ML prediction
+        pred = model.predict(X)
 
-        # -------------------------------
-        # ML Prediction
-        # -------------------------------
-        prediction = model.predict(input_data)
-
-        if prediction[0] == 1:
-            st.error("🚨 Intrusion Detected (ML Classification)")
+        if pred[0] == 1:
+            st.error("🚨 Intrusion Detected — ML Classification")
         else:
             st.success("✅ Normal Traffic")
 
-        st.caption("Machine-learning classification based on learned traffic patterns.")
+        st.caption("ML-based classification using learned multi-dimensional traffic patterns.")
 
 # =====================================================
-# Footer Note
+# Footer
 # =====================================================
 st.markdown("---")
 st.caption(
-    "This system uses a hybrid intrusion detection approach combining "
-    "rule-based anomaly detection and machine-learning classification."
+    "Hybrid Intrusion Detection System combining Machine Learning and Rule-Based Anomaly Detection."
 )
 
