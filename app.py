@@ -25,6 +25,7 @@ st.markdown("""
     font-family: "Segoe UI", system-ui;
 }
 
+/* MAIN TITLE */
 h1 {
     font-size:3rem;
     font-weight:900;
@@ -33,34 +34,63 @@ h1 {
     -webkit-text-fill-color:transparent;
 }
 
+/* SUBTITLE */
+.subtitle {
+    color: #ffffff;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: -10px;
+}
+
+/* SECTION HEADINGS */
 h2, h3 {
     font-weight:800;
-    background: linear-gradient(90deg,#00e5ff,#7c4dff);
+    background: linear-gradient(90deg,#38bdf8,#a78bfa);
     -webkit-background-clip:text;
     -webkit-text-fill-color:transparent;
 }
 
+/* CARDS */
 .card {
-    background: rgba(255,255,255,.06);
     border-radius:20px;
-    padding:22px;
-    box-shadow:0 20px 60px rgba(0,0,0,.8);
+    padding:24px;
+    box-shadow:0 20px 60px rgba(0,0,0,.85);
 }
 
-.attack {
-    background: linear-gradient(135deg,#7f1d1d,#f97316);
-}
-
+/* NORMAL */
 .normal {
-    background: linear-gradient(135deg,#064e3b,#0284c7);
+    background: linear-gradient(135deg,#0f766e,#1e3a8a);
 }
 
+/* ATTACK */
+.attack {
+    background: linear-gradient(135deg,#7f1d1d,#ea580c);
+}
+
+/* BADGE */
 .badge {
     display:inline-block;
-    padding:6px 14px;
+    padding:6px 16px;
     border-radius:999px;
-    background:#000;
+    background: rgba(0,0,0,.6);
     font-weight:800;
+    margin-top:8px;
+}
+
+/* BUTTON */
+.stButton>button {
+    background: linear-gradient(90deg,#00e5ff,#7c4dff);
+    color:white;
+    font-weight:800;
+    border-radius:14px;
+    padding:14px 28px;
+    border:none;
+    box-shadow:0 0 18px rgba(124,77,255,.6);
+    transition: all 0.3s ease;
+}
+.stButton>button:hover {
+    transform: scale(1.05);
+    box-shadow:0 0 30px rgba(0,229,255,.9);
 }
 
 footer {visibility:hidden;}
@@ -78,15 +108,15 @@ ATTACK_LABELS = [
 ]
 
 ATTACK_EXPLANATIONS = {
-    "DoS": "Abnormal packet burst and traffic saturation indicate a denial-of-service attempt.",
-    "Exploits": "Traffic patterns match known vulnerability exploitation behavior.",
-    "Reconnaissance": "Repeated scanning activity suggests network discovery attempts.",
-    "Backdoor": "Persistent unauthorized communication channel detected.",
-    "Fuzzers": "Malformed high-frequency requests indicate fuzz testing.",
-    "Generic": "Statistical deviations across multiple traffic features detected.",
-    "Shellcode": "Encoded payload behavior aligns with shellcode injection.",
-    "Worms": "Traffic spread pattern suggests self-propagating malware.",
-    "Analysis": "Traffic probing behavior detected."
+    "DoS": "Extremely high packet volume overwhelms network resources.",
+    "Exploits": "Traffic matches vulnerability exploitation signatures.",
+    "Reconnaissance": "Scanning and probing activity detected.",
+    "Backdoor": "Unauthorized persistent communication channel observed.",
+    "Fuzzers": "Malformed request flooding pattern detected.",
+    "Generic": "Multiple anomaly indicators triggered.",
+    "Shellcode": "Encoded payload execution behavior identified.",
+    "Worms": "Self-propagating traffic spread detected.",
+    "Analysis": "Network probing behavior observed."
 }
 
 # =====================================================
@@ -99,10 +129,10 @@ if "events" not in st.session_state:
 # HEADER
 # =====================================================
 st.title("🛡️ IoT Network Intrusion Detection Platform")
-st.subheader("SOC-Grade Real-Time Intrusion Detection Dashboard")
+st.markdown('<div class="subtitle">SOC-Grade Real-Time Intrusion Detection Dashboard</div>', unsafe_allow_html=True)
 
 # =====================================================
-# MODE SELECTOR
+# MODE
 # =====================================================
 st.markdown("## 🔄 Detection Mode")
 mode = st.radio("", ["Manual Input Mode", "Auto Simulation Mode"], horizontal=True)
@@ -137,63 +167,46 @@ else:
 # =====================================================
 if st.button("🔍 Analyze Traffic"):
 
-    if hasattr(model, "n_features_in_"):
-        n = model.n_features_in_
-    else:
-        n = model.coefs_[0].shape[0]
-
-    X = np.zeros((1, n))
-    X[0, :4] = [spkts, dpkts, sbytes, dbytes]
+    n = model.n_features_in_ if hasattr(model,"n_features_in_") else model.coefs_[0].shape[0]
+    X = np.zeros((1,n))
+    X[0,:4] = [spkts,dpkts,sbytes,dbytes]
 
     pred = int(model.predict(X)[0])
 
-    # 60% normal / 40% intrusion balance
+    # 60% normal balance
     if random.random() < 0.6:
         pred = 0
 
-    confidence = round(random.uniform(0.65, 0.95), 2)
+    confidence = round(random.uniform(0.65,0.95),2)
     risk = int(confidence * 100)
 
     st.markdown("---")
 
     if pred == 0:
         attack = "Normal"
-        explanation = (
-            "Traffic metrics align with learned IoT baseline behavior. "
-            "Packet distribution and byte ratios remain within safe thresholds."
-        )
+        explanation = "Traffic patterns align with learned IoT baseline behavior."
 
         st.markdown("""
         <div class="card normal">
             <h3>✅ Normal Traffic</h3>
-            <p>Network activity is within expected operational limits.</p>
+            <p>Network activity is operating within safe thresholds.</p>
         </div>
         """, unsafe_allow_html=True)
-
     else:
         attack = ATTACK_LABELS[pred]
-        explanation = ATTACK_EXPLANATIONS.get(
-            attack,
-            "Anomalous traffic pattern detected."
-        )
+        explanation = ATTACK_EXPLANATIONS.get(attack,"Anomalous behavior detected.")
 
         st.markdown(f"""
         <div class="card attack">
             <h3>🚨 Intrusion Detected</h3>
             <span class="badge">{attack}</span>
-            <p>Malicious network behavior identified.</p>
+            <p>Malicious traffic behavior identified.</p>
         </div>
         """, unsafe_allow_html=True)
 
-    # =====================================================
-    # AI EXPLANATION
-    # =====================================================
-    st.markdown("## 🧠 AI Attack Explanation")
+    st.markdown("## 🧠 AI Analysis Explanation")
     st.info(explanation)
 
-    # =====================================================
-    # METRICS
-    # =====================================================
     st.markdown("## 📊 Detection Metrics")
     c1,c2,c3 = st.columns(3)
     c1.metric("Confidence", f"{risk}%")
@@ -201,7 +214,6 @@ if st.button("🔍 Analyze Traffic"):
     c3.metric("Risk Score", f"{risk}/100")
     st.progress(risk / 100)
 
-    # LOG EVENT
     st.session_state.events.append({
         "Time": datetime.now().strftime("%H:%M:%S"),
         "Result": "Normal" if attack=="Normal" else "Intrusion",
@@ -225,26 +237,14 @@ if st.session_state.events:
     st.markdown("## 📈 Attack Frequency Analysis")
 
     freq = df.groupby(["Attack Type","Result"]).size().reset_index(name="Count")
-
     normal_df = freq[freq["Result"]=="Normal"]
-    intr_df   = freq[freq["Result"]=="Intrusion"]
+    intr_df = freq[freq["Result"]=="Intrusion"]
 
-    col1, col2 = st.columns(2)
-
+    col1,col2 = st.columns(2)
     with col1:
-        st.markdown("### Normal Traffic Frequency")
-        st.bar_chart(
-            normal_df.set_index("Attack Type")["Count"],
-            color="#22c55e"   # GREEN
-        )
-
+        st.bar_chart(normal_df.set_index("Attack Type")["Count"], color="#22c55e")
     with col2:
-        st.markdown("### Intrusion Frequency")
-        st.bar_chart(
-            intr_df.set_index("Attack Type")["Count"],
-            color="#ef4444"   # RED
-        )
-
+        st.bar_chart(intr_df.set_index("Attack Type")["Count"], color="#ef4444")
 else:
     st.info("No detection events yet.")
 
