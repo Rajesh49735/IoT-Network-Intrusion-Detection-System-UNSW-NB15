@@ -72,17 +72,43 @@ st.title("🛡️ IoT Network Intrusion Detection Platform")
 st.subheader("Enterprise-Grade Hybrid IDS Dashboard")
 
 # =====================================================
-# INPUTS
+# INPUTS (NUMBER INPUT ONLY)
 # =====================================================
 st.markdown("### 🔌 Network Traffic Input")
 
 col1, col2 = st.columns(2)
+
 with col1:
-    spkts = st.slider("Source Packets", 0, 2_000_000, 200)
-    sbytes = st.slider("Source Bytes", 0, 2_000_000, 300)
+    spkts = st.number_input(
+        "Source Packets",
+        min_value=0,
+        max_value=5_000_000,
+        value=200,
+        step=100
+    )
+    sbytes = st.number_input(
+        "Source Bytes",
+        min_value=0,
+        max_value=5_000_000,
+        value=300,
+        step=100
+    )
+
 with col2:
-    dpkts = st.slider("Destination Packets", 0, 2_000_000, 180)
-    dbytes = st.slider("Destination Bytes", 0, 2_000_000, 250)
+    dpkts = st.number_input(
+        "Destination Packets",
+        min_value=0,
+        max_value=5_000_000,
+        value=180,
+        step=100
+    )
+    dbytes = st.number_input(
+        "Destination Bytes",
+        min_value=0,
+        max_value=5_000_000,
+        value=250,
+        step=100
+    )
 
 # =====================================================
 # ANALYZE
