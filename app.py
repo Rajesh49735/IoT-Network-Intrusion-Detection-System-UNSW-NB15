@@ -203,5 +203,6 @@ if st.button("Detect Intrusion"):
             )
 
 st.markdown("---")
-st.caption("Hybrid IDS with enhanced UI, animated outputs, and cyber-grade visual depth.")
+st.caption("Hybrid IDS using Machine Learning and Rule-Based Anomaly Detection.")
+
 
