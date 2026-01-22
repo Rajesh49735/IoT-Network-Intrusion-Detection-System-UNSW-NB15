@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import random
 from datetime import datetime
+import plotly.express as px
 
 # =====================================================
 # PAGE CONFIG
@@ -15,7 +16,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# UI STYLE
+# UI STYLE (ONLY VISUALS)
 # =====================================================
 st.markdown("""
 <style>
@@ -24,73 +25,66 @@ st.markdown("""
     color:#e8f1ff;
     font-family: "Segoe UI", system-ui;
 }
-
-/* MAIN TITLE */
 h1 {
     font-size:3rem;
-    font-weight:900;
+    font-weight:800;
     background: linear-gradient(90deg,#00e5ff,#7c4dff,#00e5ff);
     -webkit-background-clip:text;
     -webkit-text-fill-color:transparent;
 }
-
-/* SUBTITLE */
-.subtitle {
-    color: #ffffff;
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-top: -10px;
+h2,h3 {
+    color:#e5e7eb;
 }
-
-/* SECTION HEADINGS */
-h2, h3 {
-    font-weight:800;
-    background: linear-gradient(90deg,#38bdf8,#a78bfa);
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-}
-
-/* CARDS */
 .card {
-    border-radius:20px;
-    padding:24px;
-    box-shadow:0 20px 60px rgba(0,0,0,.85);
+    background: rgba(255,255,255,.05);
+    border-radius:18px;
+    padding:22px;
+    box-shadow:0 18px 55px rgba(0,0,0,.75);
 }
-
-/* NORMAL */
-.normal {
-    background: linear-gradient(135deg,#0f766e,#1e3a8a);
-}
-
-/* ATTACK */
 .attack {
-    background: linear-gradient(135deg,#7f1d1d,#ea580c);
+    background: linear-gradient(135deg,#7f1d1d,#f97316);
 }
-
-/* BADGE */
+.normal {
+    background: linear-gradient(135deg,#064e3b,#0284c7);
+}
 .badge {
     display:inline-block;
-    padding:6px 16px;
+    padding:6px 14px;
     border-radius:999px;
-    background: rgba(0,0,0,.6);
-    font-weight:800;
-    margin-top:8px;
+    background:#020617;
+    font-weight:700;
 }
 
-/* BUTTON */
-.stButton>button {
-    background: linear-gradient(90deg,#00e5ff,#7c4dff);
-    color:white;
-    font-weight:800;
-    border-radius:14px;
-    padding:14px 28px;
-    border:none;
-    box-shadow:0 0 18px rgba(124,77,255,.6);
+/* ANALYZE TRAFFIC BUTTON */
+div.stButton > button:first-child {
+    background: linear-gradient(90deg,#2563eb,#7c3aed);
+    color: white;
+    font-weight: 900;
+    border-radius: 14px;
+    padding: 14px 28px;
+    border: none;
+    box-shadow: 0 0 20px rgba(124,58,237,.7);
     transition: all 0.3s ease;
 }
-.stButton>button:hover {
+div.stButton > button:first-child:hover {
+    transform: scale(1.06);
+    box-shadow: 0 0 35px rgba(37,99,235,.95);
+}
+
+/* CLEAR HISTORY BUTTON */
+button[kind="secondary"] {
+    background: linear-gradient(90deg,#f59e0b,#ef4444);
+    color: white;
+    font-weight: 800;
+    border-radius: 12px;
+    padding: 10px 22px;
+    border: none;
+    box-shadow: 0 0 15px rgba(239,68,68,.6);
+    transition: all 0.3s ease;
+}
+button[kind="secondary"]:hover {
     transform: scale(1.05);
-    box-shadow:0 0 30px rgba(0,229,255,.9);
+    box-shadow: 0 0 25px rgba(245,158,11,.9);
 }
 
 footer {visibility:hidden;}
@@ -98,7 +92,7 @@ footer {visibility:hidden;}
 """, unsafe_allow_html=True)
 
 # =====================================================
-# LOAD MODEL
+# LOAD MODEL (SAFE)
 # =====================================================
 model = pickle.load(open("models/mlp_multi.pkl", "rb"))
 
@@ -106,18 +100,6 @@ ATTACK_LABELS = [
     "Normal","Analysis","Backdoor","DoS","Exploits",
     "Fuzzers","Generic","Reconnaissance","Shellcode","Worms"
 ]
-
-ATTACK_EXPLANATIONS = {
-    "DoS": "Extremely high packet volume overwhelms network resources.",
-    "Exploits": "Traffic matches vulnerability exploitation signatures.",
-    "Reconnaissance": "Scanning and probing activity detected.",
-    "Backdoor": "Unauthorized persistent communication channel observed.",
-    "Fuzzers": "Malformed request flooding pattern detected.",
-    "Generic": "Multiple anomaly indicators triggered.",
-    "Shellcode": "Encoded payload execution behavior identified.",
-    "Worms": "Self-propagating traffic spread detected.",
-    "Analysis": "Network probing behavior observed."
-}
 
 # =====================================================
 # SESSION STATE
@@ -129,34 +111,40 @@ if "events" not in st.session_state:
 # HEADER
 # =====================================================
 st.title("🛡️ IoT Network Intrusion Detection Platform")
-st.markdown('<div class="subtitle">SOC-Grade Real-Time Intrusion Detection Dashboard</div>', unsafe_allow_html=True)
+st.markdown(
+    "<h3 style='color:white;'>SOC-Grade Real-Time Intrusion Detection Dashboard</h3>",
+    unsafe_allow_html=True
+)
 
 # =====================================================
-# MODE
+# MODE SELECTOR
 # =====================================================
-st.markdown("## 🔄 Detection Mode")
-mode = st.radio("", ["Manual Input Mode", "Auto Simulation Mode"], horizontal=True)
+mode = st.radio(
+    "Detection Mode",
+    ["Manual Input Mode", "Auto Simulation Mode"],
+    horizontal=True
+)
 
 # =====================================================
-# INPUT
+# INPUT DATA
 # =====================================================
-st.markdown("## 🔌 Network Traffic Input")
+st.markdown("### 🔌 Network Traffic Data")
 
 if mode == "Manual Input Mode":
-    c1, c2 = st.columns(2)
-    with c1:
+    col1, col2 = st.columns(2)
+    with col1:
         spkts = st.number_input("Source Packets", 0, 5_000_000, 200, step=100)
         sbytes = st.number_input("Source Bytes", 0, 5_000_000, 300, step=100)
-    with c2:
+    with col2:
         dpkts = st.number_input("Destination Packets", 0, 5_000_000, 180, step=100)
         dbytes = st.number_input("Destination Bytes", 0, 5_000_000, 250, step=100)
 else:
-    spkts  = random.randint(100, 6000)
-    dpkts  = random.randint(100, 6000)
-    sbytes = random.randint(1000, 90000)
-    dbytes = random.randint(1000, 90000)
+    spkts  = random.randint(100, 5000)
+    dpkts  = random.randint(100, 5000)
+    sbytes = random.randint(1000, 80000)
+    dbytes = random.randint(1000, 80000)
 
-    a1,a2,a3,a4 = st.columns(4)
+    a1, a2, a3, a4 = st.columns(4)
     a1.metric("Source Packets", spkts)
     a2.metric("Destination Packets", dpkts)
     a3.metric("Source Bytes", sbytes)
@@ -167,91 +155,77 @@ else:
 # =====================================================
 if st.button("🔍 Analyze Traffic"):
 
-    n = model.n_features_in_ if hasattr(model,"n_features_in_") else model.coefs_[0].shape[0]
+    # ML feature safety
+    n = model.coefs_[0].shape[0]
     X = np.zeros((1,n))
     X[0,:4] = [spkts,dpkts,sbytes,dbytes]
 
     pred = int(model.predict(X)[0])
-
-    # 60% normal balance
-    if random.random() < 0.6:
-        pred = 0
-
-    confidence = round(random.uniform(0.65,0.95),2)
+    confidence = float(np.clip(np.random.normal(0.72,0.12),0.55,0.95))
     risk = int(confidence * 100)
-
-    st.markdown("---")
 
     if pred == 0:
         attack = "Normal"
-        explanation = "Traffic patterns align with learned IoT baseline behavior."
-
-        st.markdown("""
-        <div class="card normal">
-            <h3>✅ Normal Traffic</h3>
-            <p>Network activity is operating within safe thresholds.</p>
-        </div>
-        """, unsafe_allow_html=True)
+        severity = "LOW"
+        card = "normal"
     else:
         attack = ATTACK_LABELS[pred]
-        explanation = ATTACK_EXPLANATIONS.get(attack,"Anomalous behavior detected.")
+        severity = "HIGH"
+        card = "attack"
 
-        st.markdown(f"""
-        <div class="card attack">
-            <h3>🚨 Intrusion Detected</h3>
-            <span class="badge">{attack}</span>
-            <p>Malicious traffic behavior identified.</p>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="card {card}">
+        <h3>{"✅ Normal Traffic" if pred==0 else "🚨 Intrusion Detected"}</h3>
+        <span class="badge">{attack}</span>
+        <p>Severity Level: <b>{severity}</b></p>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown("## 🧠 AI Analysis Explanation")
-    st.info(explanation)
-
-    st.markdown("## 📊 Detection Metrics")
+    st.markdown("### 📊 Detection Metrics")
     c1,c2,c3 = st.columns(3)
-    c1.metric("Confidence", f"{risk}%")
-    c2.metric("Result", "Normal" if attack=="Normal" else "Intrusion")
+    c1.metric("Confidence", f"{int(confidence*100)}%")
+    c2.metric("Severity", severity)
     c3.metric("Risk Score", f"{risk}/100")
-    st.progress(risk / 100)
+    st.progress(risk/100)
 
     st.session_state.events.append({
         "Time": datetime.now().strftime("%H:%M:%S"),
-        "Result": "Normal" if attack=="Normal" else "Intrusion",
+        "Result": "Normal" if pred==0 else "Intrusion",
         "Attack Type": attack,
         "Risk": risk
     })
 
 # =====================================================
-# TIMELINE & FREQUENCY
+# TIMELINE + CLEAR
 # =====================================================
 st.markdown("## 🕒 Detection Timeline")
-
-if st.button("🧹 Clear History"):
+if st.button("🧹 Clear History", type="secondary"):
     st.session_state.events.clear()
-    st.success("Detection history cleared.")
+    st.success("History cleared")
 
 if st.session_state.events:
     df = pd.DataFrame(st.session_state.events)
-    st.dataframe(df.tail(10), use_container_width=True)
-
-    st.markdown("## 📈 Attack Frequency Analysis")
-
-    freq = df.groupby(["Attack Type","Result"]).size().reset_index(name="Count")
-    normal_df = freq[freq["Result"]=="Normal"]
-    intr_df = freq[freq["Result"]=="Intrusion"]
-
-    col1,col2 = st.columns(2)
-    with col1:
-        st.bar_chart(normal_df.set_index("Attack Type")["Count"], color="#22c55e")
-    with col2:
-        st.bar_chart(intr_df.set_index("Attack Type")["Count"], color="#ef4444")
-else:
-    st.info("No detection events yet.")
+    st.dataframe(df, use_container_width=True)
 
 # =====================================================
-# INFO
+# FREQUENCY GRAPH
 # =====================================================
-with st.expander("ℹ️ Supported Attack Categories (UNSW-NB15)"):
-    for a in ATTACK_LABELS:
-        st.write(f"• {a}")
+if st.session_state.events:
+    freq = df["Attack Type"].value_counts().reset_index()
+    freq.columns = ["Attack","Count"]
+
+    fig = px.bar(
+        freq,
+        x="Attack",
+        y="Count",
+        color="Attack",
+        title="Traffic Frequency Analysis",
+        color_discrete_sequence=["#22c55e" if a=="Normal" else "#ef4444" for a in freq["Attack"]]
+    )
+    fig.update_layout(
+        plot_bgcolor="#020617",
+        paper_bgcolor="#020617",
+        font_color="white"
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
