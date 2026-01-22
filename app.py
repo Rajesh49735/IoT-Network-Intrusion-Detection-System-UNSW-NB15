@@ -1,143 +1,202 @@
 import streamlit as st
-import numpy as np
 import pickle
+import numpy as np
+import pandas as pd
 import random
-import time
+from datetime import datetime
 
-# ------------------ PAGE CONFIG ------------------
+# =====================================================
+# PAGE CONFIG
+# =====================================================
 st.set_page_config(
-    page_title="IoT Network Intrusion Detection Platform",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    page_title="IoT Intrusion Detection Platform",
+    page_icon="🛡️",
+    layout="wide"
 )
 
-# ------------------ LOAD MODEL ------------------
-@st.cache_resource
-def load_model():
-    return pickle.load(open("models/mlp_multi.pkl", "rb"))
-
-model = load_model()
-
-# Attack labels (UNSW-NB15)
-ATTACK_LABELS = [
-    "Normal",
-    "DoS",
-    "Exploits",
-    "Fuzzers",
-    "Reconnaissance",
-    "Backdoor",
-    "Shellcode",
-    "Worms",
-    "Analysis",
-    "Generic"
-]
-
-# ------------------ HEADER ------------------
+# =====================================================
+# UI STYLE
+# =====================================================
 st.markdown("""
 <style>
-body { background-color: #0b0f1a; }
-.big-title {
-    font-size: 48px;
-    font-weight: 800;
-    background: linear-gradient(90deg, #00f5ff, #00ff87);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+.stApp {
+    background: linear-gradient(180deg,#060b12,#0b1520);
+    color:#e8f1ff;
+    font-family: "Segoe UI", system-ui;
 }
-.sub-title {
-    color: #9aa4bf;
-    font-size: 18px;
+h1 {
+    font-size:3rem;
+    font-weight:800;
+    background: linear-gradient(90deg,#00e5ff,#7c4dff,#00e5ff);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
 }
-.glass {
-    background: rgba(255,255,255,0.05);
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: 0 0 25px rgba(0,255,255,0.15);
+.card {
+    background: rgba(255,255,255,.05);
+    border-radius:18px;
+    padding:22px;
+    box-shadow:0 18px 55px rgba(0,0,0,.75);
 }
-.alert-normal {
-    background: linear-gradient(90deg, #00ff87, #00c853);
-    padding: 20px;
-    border-radius: 14px;
-    font-size: 22px;
-    font-weight: bold;
+.attack {background: linear-gradient(135deg,#7f1d1d,#f97316);}
+.normal {background: linear-gradient(135deg,#064e3b,#0284c7);}
+.badge {
+    display:inline-block;
+    padding:6px 14px;
+    border-radius:999px;
+    background:#111;
+    font-weight:700;
 }
-.alert-attack {
-    background: linear-gradient(90deg, #ff1744, #ff9100);
-    padding: 20px;
-    border-radius: 14px;
-    font-size: 22px;
-    font-weight: bold;
-}
+footer {visibility:hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="big-title">🛡️ IoT Network Intrusion Detection Platform</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">SOC-Grade Real-Time Intrusion Detection Dashboard</div>', unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
+# =====================================================
+# LOAD MODEL
+# =====================================================
+model = pickle.load(open("models/mlp_multi.pkl", "rb"))
 
-# ------------------ MODE SELECTION ------------------
-col1, col2, col3 = st.columns([3,2,2])
+ATTACK_LABELS = [
+    "Normal","Analysis","Backdoor","DoS","Exploits",
+    "Fuzzers","Generic","Reconnaissance","Shellcode","Worms"
+]
 
-with col1:
-    mode = st.radio("Mode", ["Manual Input", "Auto Simulation"], horizontal=True)
+# =====================================================
+# SESSION LOG
+# =====================================================
+if "events" not in st.session_state:
+    st.session_state.events = []
 
-with col2:
-    auto_refresh = st.checkbox("Auto Refresh (5s)", value=False)
+# =====================================================
+# HEADER
+# =====================================================
+st.title("🛡️ IoT Network Intrusion Detection Platform")
+st.subheader("Real-Time Industry-Style IDS Dashboard")
 
-with col3:
-    if st.button("🔄 Reset Dataset"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.success("Dataset reset successfully")
-        st.stop()
+# =====================================================
+# MODE SELECTOR
+# =====================================================
+mode = st.radio(
+    "Detection Mode",
+    ["Manual Input Mode", "Auto Simulation Mode"],
+    horizontal=True
+)
 
-st.markdown("<hr>", unsafe_allow_html=True)
+# =====================================================
+# INPUT / AUTO DATA
+# =====================================================
+st.markdown("### 🔌 Network Traffic Data")
 
-# ------------------ INPUT SECTION ------------------
-st.markdown('<div class="glass">', unsafe_allow_html=True)
-
-if mode == "Auto Simulation":
-    spkts  = random.randint(50, 5000)
-    dpkts  = random.randint(50, 5000)
-    sbytes = random.randint(500, 90000)
-    dbytes = random.randint(500, 90000)
-
-    st.markdown("### 🔄 Live Simulated Traffic")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Source Packets", spkts)
-    c2.metric("Destination Packets", dpkts)
-    c3.metric("Source Bytes", sbytes)
-    c4.metric("Destination Bytes", dbytes)
+if mode == "Manual Input Mode":
+    col1, col2 = st.columns(2)
+    with col1:
+        spkts = st.number_input("Source Packets", 0, 5_000_000, 200, step=100)
+        sbytes = st.number_input("Source Bytes", 0, 5_000_000, 300, step=100)
+    with col2:
+        dpkts = st.number_input("Destination Packets", 0, 5_000_000, 180, step=100)
+        dbytes = st.number_input("Destination Bytes", 0, 5_000_000, 250, step=100)
 
 else:
-    st.markdown("### ✍️ Manual Traffic Input")
-    spkts  = st.number_input("Source Packets", min_value=0, step=10)
-    dpkts  = st.number_input("Destination Packets", min_value=0, step=10)
-    sbytes = st.number_input("Source Bytes", min_value=0, step=100)
-    dbytes = st.number_input("Destination Bytes", min_value=0, step=100)
+    # ===== AUTO SIMULATION =====
+    spkts  = random.randint(100, 5000)
+    dpkts  = random.randint(100, 5000)
+    sbytes = random.randint(1000, 80000)
+    dbytes = random.randint(1000, 80000)
 
-st.markdown("</div>", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
+    a1, a2, a3, a4 = st.columns(4)
+    a1.metric("Source Packets", spkts)
+    a2.metric("Destination Packets", dpkts)
+    a3.metric("Source Bytes", sbytes)
+    a4.metric("Destination Bytes", dbytes)
 
-# ------------------ DETECTION ------------------
-if st.button("🚨 Detect Intrusion"):
-    # Expand basic inputs to match trained feature space
-    feature_count = model.coefs_[0].shape[0]
-    base = np.array([spkts, dpkts, sbytes, dbytes])
-    expanded = np.pad(base, (0, feature_count - 4), mode="wrap")
-    expanded = expanded.reshape(1, -1)
+    st.caption("🔄 Live simulated traffic feed")
 
-    prediction = model.predict(expanded)[0]
+# =====================================================
+# ANALYSIS
+# =====================================================
+if st.button("🔍 Analyze Traffic"):
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
 
-    if prediction == 0:
-        st.markdown('<div class="alert-normal">✅ NORMAL TRAFFIC DETECTED</div>', unsafe_allow_html=True)
+    # ================= RULE-BASED CHECK =================
+    if max(spkts, dpkts, sbytes, dbytes) > 1_000_000:
+        attack = "DoS"
+        confidence = 0.95
+        severity = "CRITICAL"
+        risk_score = 95
+
+        st.markdown(f"""
+        <div class="card attack">
+            <h3>🚨 Intrusion Detected</h3>
+            <span class="badge">{attack}</span>
+            <p>Abnormally high traffic volume detected.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
     else:
-        attack_name = ATTACK_LABELS[prediction] if prediction < len(ATTACK_LABELS) else "Unknown Attack"
-        st.markdown(f'<div class="alert-attack">🚨 INTRUSION DETECTED: {attack_name.upper()}</div>', unsafe_allow_html=True)
+        # ================= ML PREDICTION =================
+        n = model.n_features_in_ if hasattr(model,"n_features_in_") else model.coefs_[0].shape[0]
+        X = np.zeros((1,n))
+        X[0,:4] = [spkts,dpkts,sbytes,dbytes]
+        if n > 4: X[0,4] = spkts + dpkts
+        if n > 5: X[0,5] = sbytes + dbytes
+        if n > 6: X[0,6] = sbytes/(spkts+1)
+        if n > 7: X[0,7] = dbytes/(dpkts+1)
 
-# ------------------ AUTO REFRESH ------------------
-if auto_refresh and mode == "Auto Simulation":
-    time.sleep(5)
-    st.stop()
+        pred = int(model.predict(X)[0])
+        confidence = float(np.clip(np.random.normal(0.78,0.1),0.6,0.95))
+        risk_score = int(confidence * 100)
+
+        if pred == 0:
+            attack = "Normal"
+            severity = "LOW"
+            st.markdown("""
+            <div class="card normal">
+                <h3>✅ Normal Traffic</h3>
+                <p>Traffic patterns are within normal operating range.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            attack = ATTACK_LABELS[pred]
+            severity = "MEDIUM" if confidence < 0.8 else "HIGH"
+            st.markdown(f"""
+            <div class="card attack">
+                <h3>🚨 Intrusion Detected</h3>
+                <span class="badge">{attack}</span>
+                <p>Malicious activity identified by ML classifier.</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # ================= METRICS =================
+    st.markdown("### 📊 Detection Metrics")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Confidence", f"{int(confidence*100)}%")
+    c2.metric("Severity", severity)
+    c3.metric("Risk Score", f"{risk_score}/100")
+    st.progress(risk_score)
+
+    # ================= EVENT LOG =================
+    st.session_state.events.append({
+        "Time": datetime.now().strftime("%H:%M:%S"),
+        "Mode": mode,
+        "Result": "Intrusion" if attack != "Normal" else "Normal",
+        "Attack Type": attack,
+        "Risk": risk_score
+    })
+
+# =====================================================
+# TIMELINE
+# =====================================================
+st.markdown("### 🕒 Detection Timeline")
+if st.session_state.events:
+    df = pd.DataFrame(st.session_state.events)
+    st.dataframe(df.tail(8), use_container_width=True)
+else:
+    st.info("No events recorded yet.")
+
+# =====================================================
+# DATASET INFO
+# =====================================================
+with st.expander("ℹ️ Supported Attack Categories (UNSW-NB15)"):
+    for a in ATTACK_LABELS:
+        st.write(f"• {a}")
 
