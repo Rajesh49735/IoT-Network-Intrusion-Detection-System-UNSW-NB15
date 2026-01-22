@@ -33,9 +33,9 @@ h1 {
     -webkit-text-fill-color:transparent;
 }
 
-h2 {
+h2, h3 {
     font-weight:800;
-    background: linear-gradient(90deg,#22c55e,#38bdf8);
+    background: linear-gradient(90deg,#00e5ff,#7c4dff);
     -webkit-background-clip:text;
     -webkit-text-fill-color:transparent;
 }
@@ -47,8 +47,13 @@ h2 {
     box-shadow:0 20px 60px rgba(0,0,0,.8);
 }
 
-.attack { background: linear-gradient(135deg,#7f1d1d,#f97316); }
-.normal { background: linear-gradient(135deg,#064e3b,#0284c7); }
+.attack {
+    background: linear-gradient(135deg,#7f1d1d,#f97316);
+}
+
+.normal {
+    background: linear-gradient(135deg,#064e3b,#0284c7);
+}
 
 .badge {
     display:inline-block;
@@ -73,15 +78,15 @@ ATTACK_LABELS = [
 ]
 
 ATTACK_EXPLANATIONS = {
-    "DoS": "A surge in packet rate and traffic volume indicates resource exhaustion attempts, commonly seen in Distributed Denial of Service attacks.",
-    "Exploits": "Payload and session behavior match known vulnerability exploitation patterns targeting IoT firmware.",
-    "Reconnaissance": "Repeated scanning activity suggests network mapping or device discovery attempts.",
-    "Backdoor": "Traffic flow resembles persistent unauthorized access channels.",
-    "Fuzzers": "Malformed and high-frequency requests indicate fuzz testing of IoT services.",
-    "Generic": "Statistical deviations across multiple features suggest generic attack behavior.",
-    "Shellcode": "Encoded payload characteristics align with shellcode injection attempts.",
-    "Worms": "Lateral traffic spread pattern suggests self-propagating malware.",
-    "Analysis": "Traffic shows probing behavior to understand protocol responses."
+    "DoS": "Abnormal packet burst and traffic saturation indicate a denial-of-service attempt.",
+    "Exploits": "Traffic patterns match known vulnerability exploitation behavior.",
+    "Reconnaissance": "Repeated scanning activity suggests network discovery attempts.",
+    "Backdoor": "Persistent unauthorized communication channel detected.",
+    "Fuzzers": "Malformed high-frequency requests indicate fuzz testing.",
+    "Generic": "Statistical deviations across multiple traffic features detected.",
+    "Shellcode": "Encoded payload behavior aligns with shellcode injection.",
+    "Worms": "Traffic spread pattern suggests self-propagating malware.",
+    "Analysis": "Traffic probing behavior detected."
 }
 
 # =====================================================
@@ -142,7 +147,7 @@ if st.button("🔍 Analyze Traffic"):
 
     pred = int(model.predict(X)[0])
 
-    # 60% Normal / 40% Attack balance
+    # 60% normal / 40% intrusion balance
     if random.random() < 0.6:
         pred = 0
 
@@ -154,14 +159,14 @@ if st.button("🔍 Analyze Traffic"):
     if pred == 0:
         attack = "Normal"
         explanation = (
-            "Traffic metrics fall within learned baseline thresholds. "
-            "Packet distribution, byte ratios, and session symmetry indicate healthy IoT communication."
+            "Traffic metrics align with learned IoT baseline behavior. "
+            "Packet distribution and byte ratios remain within safe thresholds."
         )
 
         st.markdown("""
         <div class="card normal">
             <h3>✅ Normal Traffic</h3>
-            <p>Network behavior matches expected IoT operational patterns.</p>
+            <p>Network activity is within expected operational limits.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -169,7 +174,7 @@ if st.button("🔍 Analyze Traffic"):
         attack = ATTACK_LABELS[pred]
         explanation = ATTACK_EXPLANATIONS.get(
             attack,
-            "Anomalous behavior detected due to deviation from normal traffic patterns."
+            "Anomalous traffic pattern detected."
         )
 
         st.markdown(f"""
@@ -184,7 +189,7 @@ if st.button("🔍 Analyze Traffic"):
     # AI EXPLANATION
     # =====================================================
     st.markdown("## 🧠 AI Attack Explanation")
-    st.success(explanation)
+    st.info(explanation)
 
     # =====================================================
     # METRICS
@@ -196,7 +201,7 @@ if st.button("🔍 Analyze Traffic"):
     c3.metric("Risk Score", f"{risk}/100")
     st.progress(risk / 100)
 
-    # LOG
+    # LOG EVENT
     st.session_state.events.append({
         "Time": datetime.now().strftime("%H:%M:%S"),
         "Result": "Normal" if attack=="Normal" else "Intrusion",
@@ -205,7 +210,7 @@ if st.button("🔍 Analyze Traffic"):
     })
 
 # =====================================================
-# TIMELINE + FREQUENCY GRAPH
+# TIMELINE & FREQUENCY
 # =====================================================
 st.markdown("## 🕒 Detection Timeline")
 
@@ -221,17 +226,24 @@ if st.session_state.events:
 
     freq = df.groupby(["Attack Type","Result"]).size().reset_index(name="Count")
 
-    normal = freq[freq["Result"]=="Normal"].set_index("Attack Type")["Count"]
-    intru  = freq[freq["Result"]=="Intrusion"].set_index("Attack Type")["Count"]
+    normal_df = freq[freq["Result"]=="Normal"]
+    intr_df   = freq[freq["Result"]=="Intrusion"]
 
     col1, col2 = st.columns(2)
+
     with col1:
-        st.markdown("### 🟢 Normal Traffic Frequency")
-        st.bar_chart(normal)
+        st.markdown("### Normal Traffic Frequency")
+        st.bar_chart(
+            normal_df.set_index("Attack Type")["Count"],
+            color="#22c55e"   # GREEN
+        )
 
     with col2:
-        st.markdown("### 🔴 Intrusion Frequency")
-        st.bar_chart(intru)
+        st.markdown("### Intrusion Frequency")
+        st.bar_chart(
+            intr_df.set_index("Attack Type")["Count"],
+            color="#ef4444"   # RED
+        )
 
 else:
     st.info("No detection events yet.")
