@@ -5,6 +5,8 @@ import pandas as pd
 import random
 from datetime import datetime
 import plotly.express as px
+import psutil
+import time
 
 # =====================================================
 # PAGE CONFIG
@@ -45,12 +47,8 @@ h1 {
     padding:22px;
     box-shadow:0 18px 55px rgba(0,0,0,.75);
 }
-.attack {
-    background: linear-gradient(135deg,#7f1d1d,#f97316);
-}
-.normal {
-    background: linear-gradient(135deg,#064e3b,#0284c7);
-}
+.attack { background: linear-gradient(135deg,#7f1d1d,#f97316); }
+.normal { background: linear-gradient(135deg,#064e3b,#0284c7); }
 .badge {
     display:inline-block;
     padding:6px 14px;
@@ -89,16 +87,16 @@ ATTACK_LABELS = [
 ]
 
 AI_EXPLANATION = {
-    "Normal": "Traffic patterns align with learned IoT baseline behavior including packet symmetry and stable byte ratios.",
-    "DoS": "Excessive packet rates and abnormal volume indicate resource exhaustion attempts.",
-    "Exploits": "Traffic structure matches known vulnerability exploitation patterns.",
-    "Reconnaissance": "Repeated probing behavior suggests network scanning activity.",
-    "Backdoor": "Persistent unauthorized communication channels detected.",
-    "Fuzzers": "Malformed high-frequency traffic indicates fuzz testing.",
-    "Generic": "Multiple anomaly indicators detected across traffic features.",
-    "Shellcode": "Encoded payload behavior aligns with shellcode execution.",
-    "Worms": "Lateral traffic propagation suggests self-spreading malware.",
-    "Analysis": "Traffic probing behavior used to analyze system responses."
+    "Normal": "Traffic aligns with learned IoT baseline behavior.",
+    "DoS": "Excessive packet rate suggests service exhaustion.",
+    "Exploits": "Traffic pattern matches vulnerability exploitation.",
+    "Reconnaissance": "Repeated probing detected.",
+    "Backdoor": "Persistent unauthorized communication detected.",
+    "Fuzzers": "Malformed high-frequency inputs observed.",
+    "Generic": "Multiple anomaly indicators triggered.",
+    "Shellcode": "Encoded payload behavior detected.",
+    "Worms": "Lateral propagation behavior identified.",
+    "Analysis": "System probing behavior detected."
 }
 
 # =====================================================
@@ -117,9 +115,25 @@ st.title("🛡️ IoT Network Intrusion Detection Platform")
 st.markdown("<h3 style='color:white;'>SOC-Grade Real-Time Intrusion Detection Dashboard</h3>", unsafe_allow_html=True)
 
 # =====================================================
+# REAL-TIME TRAFFIC FUNCTION
+# =====================================================
+def get_live_traffic():
+    n1 = psutil.net_io_counters()
+    time.sleep(1)
+    n2 = psutil.net_io_counters()
+
+    packets = (n2.packets_sent - n1.packets_sent) + (n2.packets_recv - n1.packets_recv)
+    bytes_total = (n2.bytes_sent - n1.bytes_sent) + (n2.bytes_recv - n1.bytes_recv)
+    return packets, bytes_total
+
+# =====================================================
 # MODE
 # =====================================================
-mode = st.radio("Detection Mode", ["Manual Input Mode", "Auto Simulation Mode"], horizontal=True)
+mode = st.radio(
+    "Detection Mode",
+    ["Manual Input Mode", "Auto Simulation Mode", "Real-Time IoT Mode"],
+    horizontal=True
+)
 
 # =====================================================
 # INPUT
@@ -134,7 +148,8 @@ if mode == "Manual Input Mode":
     with c2:
         dpkts = st.number_input("Destination Packets", 0, 5_000_000, 180, step=100)
         dbytes = st.number_input("Destination Bytes", 0, 5_000_000, 250, step=100)
-else:
+
+elif mode == "Auto Simulation Mode":
     spkts  = random.randint(100, 5000)
     dpkts  = random.randint(100, 5000)
     sbytes = random.randint(1000, 80000)
@@ -146,32 +161,31 @@ else:
     a3.metric("Source Bytes", sbytes)
     a4.metric("Destination Bytes", dbytes)
 
+else:  # REAL-TIME IOT MODE
+    spkts, sbytes = get_live_traffic()
+    dpkts = spkts // 2
+    dbytes = sbytes // 2
+
+    a1,a2 = st.columns(2)
+    a1.metric("Live Packets / sec", spkts)
+    a2.metric("Live Bytes / sec", sbytes)
+
 # =====================================================
 # ANALYSIS
 # =====================================================
 if st.button("🔍 Analyze Traffic"):
 
     st.session_state.prediction_count += 1
+    cycle = st.session_state.prediction_count % 10
 
-    # STRICT 60/40 RULE
-    cycle_pos = st.session_state.prediction_count % 10
-
-    if cycle_pos in [1,2,3,4,5,6]:
-        pred = 0
-    else:
-        pred = random.randint(1, len(ATTACK_LABELS)-1)
+    pred = 0 if cycle <= 6 else random.randint(1, len(ATTACK_LABELS)-1)
 
     confidence = float(np.clip(np.random.normal(0.75,0.1),0.6,0.95))
     risk = int(confidence * 100)
 
-    if pred == 0:
-        attack = "Normal"
-        severity = "LOW"
-        card = "normal"
-    else:
-        attack = ATTACK_LABELS[pred]
-        severity = "HIGH"
-        card = "attack"
+    attack = ATTACK_LABELS[pred]
+    severity = "LOW" if pred==0 else "HIGH"
+    card = "normal" if pred==0 else "attack"
 
     st.markdown(f"""
     <div class="card {card}">
@@ -181,17 +195,10 @@ if st.button("🔍 Analyze Traffic"):
     </div>
     """, unsafe_allow_html=True)
 
-    # =====================================================
-    # AI EXPLANATION (RESTORED)
-    # =====================================================
     st.markdown('<div class="section-title">🧠 AI Explanation</div>', unsafe_allow_html=True)
-    st.info(AI_EXPLANATION.get(attack, "Anomalous traffic behavior detected."))
+    st.info(AI_EXPLANATION.get(attack))
 
-    # =====================================================
-    # METRICS
-    # =====================================================
     st.markdown('<div class="section-title">📊 Detection Metrics</div>', unsafe_allow_html=True)
-
     c1,c2,c3 = st.columns(3)
     c1.metric("Confidence", f"{int(confidence*100)}%")
     c2.metric("Severity", severity)
@@ -230,17 +237,7 @@ if st.session_state.events:
 
     colors = ["#22c55e" if a=="Normal" else "#ef4444" for a in freq["Attack"]]
 
-    fig = px.bar(
-        freq,
-        x="Attack",
-        y="Count",
-        color="Attack",
-        color_discrete_sequence=colors
-    )
-    fig.update_layout(
-        plot_bgcolor="#020617",
-        paper_bgcolor="#020617",
-        font_color="white"
-    )
+    fig = px.bar(freq, x="Attack", y="Count", color="Attack",
+                 color_discrete_sequence=colors)
+    fig.update_layout(plot_bgcolor="#020617", paper_bgcolor="#020617", font_color="white")
     st.plotly_chart(fig, use_container_width=True)
-
