@@ -7,7 +7,7 @@ from datetime import datetime
 import plotly.express as px
 import psutil
 import time
-import urllib.parse
+from streamlit_autorefresh import st_autorefresh
 
 # =====================================================
 # PAGE CONFIG
@@ -113,12 +113,12 @@ if "esp_data" not in st.session_state:
     st.session_state.esp_data = {"packets": 0, "bytes": 0}
 
 # =====================================================
-# ESP8266 DATA RECEIVER
+# ESP DATA RECEIVER (FROM URL)
 # =====================================================
-query_params = st.query_params
-if "packets" in query_params and "bytes" in query_params:
-    st.session_state.esp_data["packets"] = int(query_params["packets"])
-    st.session_state.esp_data["bytes"] = int(query_params["bytes"])
+params = st.query_params
+if "packets" in params and "bytes" in params:
+    st.session_state.esp_data["packets"] = int(params["packets"])
+    st.session_state.esp_data["bytes"] = int(params["bytes"])
 
 # =====================================================
 # HEADER
@@ -127,7 +127,7 @@ st.title("🛡️ IoT Network Intrusion Detection Platform")
 st.markdown("<h3 style='color:white;'>SOC-Grade Real-Time Intrusion Detection Dashboard</h3>", unsafe_allow_html=True)
 
 # =====================================================
-# REAL-TIME LAPTOP TRAFFIC
+# LAPTOP TRAFFIC
 # =====================================================
 def get_live_traffic():
     n1 = psutil.net_io_counters()
@@ -145,6 +145,12 @@ mode = st.radio(
     ["Manual Input Mode", "Auto Simulation Mode", "Real-Time IoT Mode", "ESP8266 IoT Mode"],
     horizontal=True
 )
+
+# =====================================================
+# AUTO REFRESH ONLY FOR ESP MODE
+# =====================================================
+if mode == "ESP8266 IoT Mode":
+    st_autorefresh(interval=2000, key="esp_refresh")
 
 # =====================================================
 # INPUT
@@ -181,15 +187,16 @@ elif mode == "Real-Time IoT Mode":
     a1.metric("Live Packets/sec", spkts)
     a2.metric("Live Bytes/sec", sbytes)
 
-else:  # ESP8266 MODE
+else:  # ESP MODE
     spkts = st.session_state.esp_data["packets"]
     sbytes = st.session_state.esp_data["bytes"]
     dpkts = spkts // 2
     dbytes = sbytes // 2
 
-    e1,e2 = st.columns(2)
+    e1,e2,e3 = st.columns(3)
     e1.metric("ESP Packets/sec", spkts)
     e2.metric("ESP Bytes/sec", sbytes)
+    e3.metric("ESP Status", "🟢 ACTIVE" if spkts > 0 else "🔴 WAITING")
 
 # =====================================================
 # ANALYSIS
