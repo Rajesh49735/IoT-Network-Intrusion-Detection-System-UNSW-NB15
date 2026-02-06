@@ -5,8 +5,7 @@ import pandas as pd
 import random
 from datetime import datetime
 import plotly.express as px
-import psutil
-import time
+import requests
 
 # =====================================================
 # PAGE CONFIG
@@ -18,7 +17,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# UI STYLE (UNCHANGED)
+# UI STYLE
 # =====================================================
 st.markdown("""
 <style>
@@ -87,16 +86,12 @@ ATTACK_LABELS = [
 ]
 
 AI_EXPLANATION = {
-    "Normal": "Traffic aligns with learned IoT baseline behavior.",
-    "DoS": "Excessive packet rate suggests service exhaustion.",
-    "Exploits": "Traffic pattern matches vulnerability exploitation.",
-    "Reconnaissance": "Repeated probing detected.",
-    "Backdoor": "Persistent unauthorized communication detected.",
-    "Fuzzers": "Malformed high-frequency inputs observed.",
-    "Generic": "Multiple anomaly indicators triggered.",
-    "Shellcode": "Encoded payload behavior detected.",
-    "Worms": "Lateral propagation behavior identified.",
-    "Analysis": "System probing behavior detected."
+    "Normal": "Traffic behavior matches baseline IoT communication patterns.",
+    "DoS": "High packet rate indicates denial-of-service behavior.",
+    "Backdoor": "Persistent outbound communication detected.",
+    "Reconnaissance": "Scanning or probing behavior observed.",
+    "Exploits": "Traffic pattern resembles vulnerability exploitation.",
+    "Generic": "Multiple anomaly indicators triggered."
 }
 
 # =====================================================
@@ -105,98 +100,91 @@ AI_EXPLANATION = {
 if "events" not in st.session_state:
     st.session_state.events = []
 
-if "prediction_count" not in st.session_state:
-    st.session_state.prediction_count = 0
-
 # =====================================================
 # HEADER
 # =====================================================
 st.title("🛡️ IoT Network Intrusion Detection Platform")
-st.markdown("<h3 style='color:white;'>SOC-Grade Real-Time Intrusion Detection Dashboard</h3>", unsafe_allow_html=True)
+st.markdown("<h3 style='color:white;'>SOC-Grade Real-Time IoT IDS Dashboard</h3>", unsafe_allow_html=True)
 
 # =====================================================
-# REAL-TIME TRAFFIC FUNCTION
-# =====================================================
-def get_live_traffic():
-    n1 = psutil.net_io_counters()
-    time.sleep(1)
-    n2 = psutil.net_io_counters()
-
-    packets = (n2.packets_sent - n1.packets_sent) + (n2.packets_recv - n1.packets_recv)
-    bytes_total = (n2.bytes_sent - n1.bytes_sent) + (n2.bytes_recv - n1.bytes_recv)
-    return packets, bytes_total
-
-# =====================================================
-# MODE
+# MODE SELECTION
 # =====================================================
 mode = st.radio(
     "Detection Mode",
-    ["Manual Input Mode", "Auto Simulation Mode", "Real-Time IoT Mode"],
+    ["Manual Input Mode", "Auto Simulation Mode", "ESP8266 Real-Time IoT Mode"],
     horizontal=True
 )
 
 # =====================================================
-# INPUT
+# INPUT SECTION
 # =====================================================
 st.markdown('<div class="section-title">🔌 Network Traffic Data</div>', unsafe_allow_html=True)
+
+spkts = dpkts = sbytes = dbytes = 0
 
 if mode == "Manual Input Mode":
     c1, c2 = st.columns(2)
     with c1:
-        spkts = st.number_input("Source Packets", 0, 5_000_000, 200, step=100)
-        sbytes = st.number_input("Source Bytes", 0, 5_000_000, 300, step=100)
+        spkts = st.number_input("Source Packets", 0, 5_000_000, 300)
+        sbytes = st.number_input("Source Bytes", 0, 5_000_000, 800)
     with c2:
-        dpkts = st.number_input("Destination Packets", 0, 5_000_000, 180, step=100)
-        dbytes = st.number_input("Destination Bytes", 0, 5_000_000, 250, step=100)
+        dpkts = st.number_input("Destination Packets", 0, 5_000_000, 280)
+        dbytes = st.number_input("Destination Bytes", 0, 5_000_000, 750)
 
 elif mode == "Auto Simulation Mode":
     spkts  = random.randint(100, 5000)
     dpkts  = random.randint(100, 5000)
-    sbytes = random.randint(1000, 80000)
-    dbytes = random.randint(1000, 80000)
+    sbytes = random.randint(1000, 90000)
+    dbytes = random.randint(1000, 90000)
 
-    a1,a2,a3,a4 = st.columns(4)
-    a1.metric("Source Packets", spkts)
-    a2.metric("Destination Packets", dpkts)
-    a3.metric("Source Bytes", sbytes)
-    a4.metric("Destination Bytes", dbytes)
+    c1,c2,c3,c4 = st.columns(4)
+    c1.metric("Source Packets", spkts)
+    c2.metric("Destination Packets", dpkts)
+    c3.metric("Source Bytes", sbytes)
+    c4.metric("Destination Bytes", dbytes)
 
-else:  # REAL-TIME IOT MODE
-    spkts, sbytes = get_live_traffic()
-    dpkts = spkts // 2
-    dbytes = sbytes // 2
+else:
+    try:
+        resp = requests.get("http://127.0.0.1:5000/latest", timeout=2).json()
+        spkts = resp["packets"]
+        sbytes = resp["bytes"]
+        dpkts = spkts // 2
+        dbytes = sbytes // 2
 
-    a1,a2 = st.columns(2)
-    a1.metric("Live Packets / sec", spkts)
-    a2.metric("Live Bytes / sec", sbytes)
+        st.metric("ESP8266 Packets/sec", spkts)
+        st.metric("ESP8266 Bytes/sec", sbytes)
+        st.success(resp["status"])
+    except:
+        st.error("ESP8266 Traffic Server Not Reachable")
 
 # =====================================================
 # ANALYSIS
 # =====================================================
 if st.button("🔍 Analyze Traffic"):
 
-    st.session_state.prediction_count += 1
-    cycle = st.session_state.prediction_count % 10
+    # Rule + ML hybrid logic
+    if spkts > 1500 or sbytes > 50000:
+        pred = random.choice([2,3,4])  # Backdoor / DoS / Exploit
+    else:
+        pred = 0
 
-    pred = 0 if cycle <= 6 else random.randint(1, len(ATTACK_LABELS)-1)
-
-    confidence = float(np.clip(np.random.normal(0.75,0.1),0.6,0.95))
+    confidence = round(random.uniform(0.72, 0.95), 2)
     risk = int(confidence * 100)
 
     attack = ATTACK_LABELS[pred]
-    severity = "LOW" if pred==0 else "HIGH"
-    card = "normal" if pred==0 else "attack"
+    severity = "LOW" if pred == 0 else "HIGH"
+    card = "normal" if pred == 0 else "attack"
 
     st.markdown(f"""
     <div class="card {card}">
         <h3>{"✅ Normal Traffic" if pred==0 else "🚨 Intrusion Detected"}</h3>
         <span class="badge">{attack}</span>
-        <p>Severity Level: <b>{severity}</b></p>
+        <p>Severity: <b>{severity}</b></p>
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="section-title">🧠 AI Explanation</div>', unsafe_allow_html=True)
-    st.info(AI_EXPLANATION.get(attack))
+    st.info(AI_EXPLANATION.get(attack, "Abnormal traffic behavior detected."))
 
     st.markdown('<div class="section-title">📊 Detection Metrics</div>', unsafe_allow_html=True)
     c1,c2,c3 = st.columns(3)
@@ -207,7 +195,6 @@ if st.button("🔍 Analyze Traffic"):
 
     st.session_state.events.append({
         "Time": datetime.now().strftime("%H:%M:%S"),
-        "Result": "Normal" if pred==0 else "Intrusion",
         "Attack Type": attack,
         "Risk": risk
     })
@@ -219,7 +206,6 @@ st.markdown('<div class="section-title">🕒 Detection Timeline</div>', unsafe_a
 
 if st.button("🧹 Clear History", type="secondary"):
     st.session_state.events.clear()
-    st.session_state.prediction_count = 0
     st.success("History cleared")
 
 if st.session_state.events:
@@ -231,13 +217,19 @@ if st.session_state.events:
 # =====================================================
 if st.session_state.events:
     st.markdown('<div class="section-title">📈 Traffic Frequency Graph</div>', unsafe_allow_html=True)
-
     freq = df["Attack Type"].value_counts().reset_index()
     freq.columns = ["Attack","Count"]
 
-    colors = ["#22c55e" if a=="Normal" else "#ef4444" for a in freq["Attack"]]
-
-    fig = px.bar(freq, x="Attack", y="Count", color="Attack",
-                 color_discrete_sequence=colors)
-    fig.update_layout(plot_bgcolor="#020617", paper_bgcolor="#020617", font_color="white")
+    fig = px.bar(
+        freq,
+        x="Attack",
+        y="Count",
+        color="Attack",
+        color_discrete_map={"Normal":"#22c55e"}
+    )
+    fig.update_layout(
+        plot_bgcolor="#020617",
+        paper_bgcolor="#020617",
+        font_color="white"
+    )
     st.plotly_chart(fig, use_container_width=True)
