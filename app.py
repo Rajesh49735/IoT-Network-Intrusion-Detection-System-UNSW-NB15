@@ -7,7 +7,6 @@ from datetime import datetime
 import plotly.express as px
 import psutil
 import time
-from streamlit_autorefresh import st_autorefresh
 
 # =====================================================
 # PAGE CONFIG
@@ -19,7 +18,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# UI STYLE
+# UI STYLE (UNCHANGED)
 # =====================================================
 st.markdown("""
 <style>
@@ -109,17 +108,6 @@ if "events" not in st.session_state:
 if "prediction_count" not in st.session_state:
     st.session_state.prediction_count = 0
 
-if "esp_data" not in st.session_state:
-    st.session_state.esp_data = {"packets": 0, "bytes": 0}
-
-# =====================================================
-# ESP DATA RECEIVER (FROM URL)
-# =====================================================
-params = st.query_params
-if "packets" in params and "bytes" in params:
-    st.session_state.esp_data["packets"] = int(params["packets"])
-    st.session_state.esp_data["bytes"] = int(params["bytes"])
-
 # =====================================================
 # HEADER
 # =====================================================
@@ -127,12 +115,13 @@ st.title("🛡️ IoT Network Intrusion Detection Platform")
 st.markdown("<h3 style='color:white;'>SOC-Grade Real-Time Intrusion Detection Dashboard</h3>", unsafe_allow_html=True)
 
 # =====================================================
-# LAPTOP TRAFFIC
+# REAL-TIME TRAFFIC FUNCTION
 # =====================================================
 def get_live_traffic():
     n1 = psutil.net_io_counters()
     time.sleep(1)
     n2 = psutil.net_io_counters()
+
     packets = (n2.packets_sent - n1.packets_sent) + (n2.packets_recv - n1.packets_recv)
     bytes_total = (n2.bytes_sent - n1.bytes_sent) + (n2.bytes_recv - n1.bytes_recv)
     return packets, bytes_total
@@ -142,15 +131,9 @@ def get_live_traffic():
 # =====================================================
 mode = st.radio(
     "Detection Mode",
-    ["Manual Input Mode", "Auto Simulation Mode", "Real-Time IoT Mode", "ESP8266 IoT Mode"],
+    ["Manual Input Mode", "Auto Simulation Mode", "Real-Time IoT Mode"],
     horizontal=True
 )
-
-# =====================================================
-# AUTO REFRESH ONLY FOR ESP MODE
-# =====================================================
-if mode == "ESP8266 IoT Mode":
-    st_autorefresh(interval=2000, key="esp_refresh")
 
 # =====================================================
 # INPUT
@@ -178,32 +161,23 @@ elif mode == "Auto Simulation Mode":
     a3.metric("Source Bytes", sbytes)
     a4.metric("Destination Bytes", dbytes)
 
-elif mode == "Real-Time IoT Mode":
+else:  # REAL-TIME IOT MODE
     spkts, sbytes = get_live_traffic()
     dpkts = spkts // 2
     dbytes = sbytes // 2
 
     a1,a2 = st.columns(2)
-    a1.metric("Live Packets/sec", spkts)
-    a2.metric("Live Bytes/sec", sbytes)
-
-else:  # ESP MODE
-    spkts = st.session_state.esp_data["packets"]
-    sbytes = st.session_state.esp_data["bytes"]
-    dpkts = spkts // 2
-    dbytes = sbytes // 2
-
-    e1,e2,e3 = st.columns(3)
-    e1.metric("ESP Packets/sec", spkts)
-    e2.metric("ESP Bytes/sec", sbytes)
-    e3.metric("ESP Status", "🟢 ACTIVE" if spkts > 0 else "🔴 WAITING")
+    a1.metric("Live Packets / sec", spkts)
+    a2.metric("Live Bytes / sec", sbytes)
 
 # =====================================================
 # ANALYSIS
 # =====================================================
 if st.button("🔍 Analyze Traffic"):
+
     st.session_state.prediction_count += 1
     cycle = st.session_state.prediction_count % 10
+
     pred = 0 if cycle <= 6 else random.randint(1, len(ATTACK_LABELS)-1)
 
     confidence = float(np.clip(np.random.normal(0.75,0.1),0.6,0.95))
@@ -265,7 +239,5 @@ if st.session_state.events:
 
     fig = px.bar(freq, x="Attack", y="Count", color="Attack",
                  color_discrete_sequence=colors)
-    fig.update_layout(plot_bgcolor="#020617",
-                      paper_bgcolor="#020617",
-                      font_color="white")
+    fig.update_layout(plot_bgcolor="#020617", paper_bgcolor="#020617", font_color="white")
     st.plotly_chart(fig, use_container_width=True)
