@@ -108,22 +108,14 @@ if "events" not in st.session_state:
 if "prediction_count" not in st.session_state:
     st.session_state.prediction_count = 0
 
+if "show_dataset" not in st.session_state:
+    st.session_state.show_dataset = False
+
 # =====================================================
 # HEADER
 # =====================================================
 st.title("🛡️ IoT Network Intrusion Detection Platform")
 st.markdown("<h3 style='color:white;'>SOC-Grade Real-Time Intrusion Detection Dashboard</h3>", unsafe_allow_html=True)
-
-# =====================================================
-# ⭐ NEW SECTION — UNSW DATASET VIEW
-# =====================================================
-st.markdown('<div class="section-title">📂 UNSW-NB15 Dataset</div>', unsafe_allow_html=True)
-
-if st.button("📊 Open UNSW-NB15 Dataset"):
-    with open("unsw_dataset.html", "r", encoding="utf-8") as f:
-        html_data = f.read()
-
-    st.components.v1.html(html_data, height=700, scrolling=True)
 
 # =====================================================
 # REAL-TIME TRAFFIC FUNCTION
@@ -182,7 +174,7 @@ else:
     a2.metric("Live Bytes / sec", sbytes)
 
 # =====================================================
-# ANALYSIS (UNCHANGED)
+# ANALYSIS
 # =====================================================
 if st.button("🔍 Analyze Traffic"):
 
@@ -224,7 +216,27 @@ if st.button("🔍 Analyze Traffic"):
     })
 
 # =====================================================
-# TIMELINE + GRAPH (UNCHANGED)
+# DATASET VIEWER (NEW ONLY)
+# =====================================================
+st.markdown('<div class="section-title">📂 UNSW-NB15 Dataset</div>', unsafe_allow_html=True)
+
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("📊 Open UNSW-NB15 Dataset"):
+        st.session_state.show_dataset = True
+
+with col2:
+    if st.button("❌ Close Dataset"):
+        st.session_state.show_dataset = False
+
+if st.session_state.show_dataset:
+    with open("iot-ids-dashboard.html", "r", encoding="utf-8") as f:
+        html_data = f.read()
+    st.components.v1.html(html_data, height=700, scrolling=True)
+
+# =====================================================
+# TIMELINE
 # =====================================================
 st.markdown('<div class="section-title">🕒 Detection Timeline</div>', unsafe_allow_html=True)
 
@@ -237,6 +249,9 @@ if st.session_state.events:
     df = pd.DataFrame(st.session_state.events)
     st.dataframe(df, use_container_width=True)
 
+# =====================================================
+# FREQUENCY GRAPH
+# =====================================================
 if st.session_state.events:
     st.markdown('<div class="section-title">📈 Traffic Frequency Graph</div>', unsafe_allow_html=True)
 
