@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Intrusion Detection System - UNSW-NB15</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --cyber-black: #0a0e14;
+            --cyber-dark: #0f1419;
+            --cyber-blue: #00d9ff;
+            --cyber-purple: #bd00ff;
+            --cyber-red: #ff006e;
+            --cyber-green: #00ff9f;
+            --cyber-orange: #ff8c00;
+            --cyber-gray: #1a1f26;
+            --cyber-light-gray: #2d333b;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --grid-color: rgba(0, 217, 255, 0.1);
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--cyber-black);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* Animated Grid Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 50px 50px;
+            background-position: -1px -1px;
+            animation: gridScroll 20s linear infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes gridScroll {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        /* Scanline Effect */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                transparent 50%,
+                rgba(0, 217, 255, 0.03) 50%
+            );
+            background-size: 100% 4px;
+            animation: scanline 8s linear infinite;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        @keyframes scanline {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(100%); }
+        }
+
+        #root {
+            position: relative;
+            z-index: 2;
+        }
+
+        .app-container {
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0, 217, 255, 0.1) 0%, transparent 70%);
+            filter: blur(40px);
+            animation: pulse 4s ease-in-out infinite;
+            z-index: -1;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.1); }
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--cyber-blue) 0%, var(--cyber-purple) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            animation: glowTitle 3s ease-in-out infinite;
+        }
+
+        @keyframes glowTitle {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(0, 217, 255, 0.5)); }
+            50% { filter: drop-shadow(0 0 30px rgba(0, 217, 255, 0.8)); }
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--cyber-gray);
+            border: 1px solid var(--cyber-light-gray);
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+            animation: shimmer 2s linear infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 217, 255, 0.2);
+            border-color: var(--accent-color);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--accent-color);
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-change {
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Main Content Grid */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .panel {
+            background: var(--cyber-gray);
+            border: 1px solid var(--cyber-light-gray);
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: relative;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--cyber-light-gray);
+        }
+
+        .panel-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--cyber-blue);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Traffic Monitor */
+        .traffic-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            background: var(--cyber-dark);
+            border-left: 3px solid var(--item-color);
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .traffic-item:hover {
+            background: var(--cyber-light-gray);
+            transform: translateX(4px);
+        }
+
+        .traffic-info {
+            flex: 1;
+        }
+
+        .traffic-source {
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .traffic-details {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .traffic-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-normal {
+            background: rgba(0, 255, 159, 0.2);
+            color: var(--cyber-green);
+        }
+
+        .status-attack {
+            background: rgba(255, 0, 110, 0.2);
+            color: var(--cyber-red);
+        }
+
+        .status-suspicious {
+            background: rgba(255, 140, 0, 0.2);
+            color: var(--cyber-orange);
+        }
+
+        /* Alert Feed */
+        .alert-item {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            background: var(--cyber-dark);
+            border-radius: 6px;
+            border-left: 3px solid var(--alert-color);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .alert-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            background: var(--alert-bg);
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .alert-description {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .alert-time {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        /* Attack Distribution */
+        .attack-type {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: var(--cyber-dark);
+            border-radius: 6px;
+        }
+
+        .attack-name {
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+
+        .attack-bar-container {
+            flex: 1;
+            height: 8px;
+            background: var(--cyber-light-gray);
+            border-radius: 4px;
+            margin: 0 1rem;
+            overflow: hidden;
+        }
+
+        .attack-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--bar-color), var(--bar-color-light));
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .attack-count {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--bar-color);
+            min-width: 50px;
+            text-align: right;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 1rem;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .tab {
+            padding: 0.5rem 1rem;
+            background: var(--cyber-dark);
+            border: 1px solid var(--cyber-light-gray);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tab:hover {
+            background: var(--cyber-light-gray);
+        }
+
+        .tab.active {
+            background: var(--cyber-blue);
+            color: var(--cyber-black);
+            border-color: var(--cyber-blue);
+        }
+
+        /* Dataset Info */
+        .dataset-info {
+            background: var(--cyber-dark);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--cyber-light-gray);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .info-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Loading Animation */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid var(--cyber-light-gray);
+            border-top-color: var(--cyber-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Simulated UNSW-NB15 Dataset
+        const ATTACK_TYPES = {
+            'Fuzzers': { count: 24246, color: '#ff006e' },
+            'Analysis': { count: 2677, color: '#ff8c00' },
+            'Backdoors': { count: 2329, color: '#bd00ff' },
+            'DoS': { count: 16353, color: '#00d9ff' },
+            'Exploits': { count: 44525, color: '#ff006e' },
+            'Generic': { count: 215481, color: '#00ff9f' },
+            'Reconnaissance': { count: 13987, color: '#ff8c00' },
+            'Shellcode': { count: 1511, color: '#bd00ff' },
+            'Worms': { count: 174, color: '#00d9ff' }
+        };
+
+        const generateTrafficData = () => {
+            const statuses = ['normal', 'attack', 'suspicious'];
+            const protocols = ['TCP', 'UDP', 'ICMP', 'HTTP', 'HTTPS', 'DNS'];
+            const attacks = Object.keys(ATTACK_TYPES);
+            
+            return Array.from({ length: 8 }, (_, i) => ({
+                id: i,
+                source: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+                destination: `10.0.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+                protocol: protocols[Math.floor(Math.random() * protocols.length)],
+                status: statuses[Math.floor(Math.random() * statuses.length)],
+                attackType: attacks[Math.floor(Math.random() * attacks.length)],
+                timestamp: new Date(Date.now() - Math.random() * 300000).toLocaleTimeString()
+            }));
+        };
+
+        const generateAlerts = () => {
+            const alertTypes = [
+                { type: 'critical', icon: '🔴', title: 'Critical Intrusion Detected', desc: 'Multiple attack vectors identified' },
+                { type: 'warning', icon: '⚠️', title: 'Suspicious Activity', desc: 'Unusual traffic pattern detected' },
+                { type: 'info', icon: '🔵', title: 'Port Scan Detected', desc: 'Reconnaissance activity from external IP' },
+                { type: 'high', icon: '🚨', title: 'DDoS Attack Attempt', desc: 'High volume traffic from multiple sources' }
+            ];
+            
+            return Array.from({ length: 6 }, (_, i) => {
+                const alert = alertTypes[Math.floor(Math.random() * alertTypes.length)];
+                return {
+                    id: i,
+                    ...alert,
+                    time: `${Math.floor(Math.random() * 60)}s ago`
+                };
+            });
+        };
+
+        const IoTIDSApp = () => {
+            const [stats, setStats] = useState({
+                totalPackets: 2540044,
+                attacksDetected: 321283,
+                normalTraffic: 2218761,
+                accuracy: 97.3
+            });
+            
+            const [trafficData, setTrafficData] = useState(generateTrafficData());
+            const [alerts, setAlerts] = useState(generateAlerts());
+            const [activeTab, setActiveTab] = useState('live');
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            useEffect(() => {
+                // Update traffic data periodically
+                const interval = setInterval(() => {
+                    setTrafficData(generateTrafficData());
+                    setStats(prev => ({
+                        ...prev,
+                        totalPackets: prev.totalPackets + Math.floor(Math.random() * 100),
+                        attacksDetected: prev.attacksDetected + Math.floor(Math.random() * 10)
+                    }));
+                }, 5000);
+
+                return () => clearInterval(interval);
+            }, []);
+
+            useEffect(() => {
+                if (chartRef.current) {
+                    const ctx = chartRef.current.getContext('2d');
+                    
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+
+                    chartInstance.current = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: Array.from({ length: 24 }, (_, i) => `${i}:00`),
+                            datasets: [{
+                                label: 'Attack Traffic',
+                                data: Array.from({ length: 24 }, () => Math.floor(Math.random() * 1000) + 200),
+                                borderColor: '#ff006e',
+                                backgroundColor: 'rgba(255, 0, 110, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }, {
+                                label: 'Normal Traffic',
+                                data: Array.from({ length: 24 }, () => Math.floor(Math.random() * 3000) + 1000),
+                                borderColor: '#00ff9f',
+                                backgroundColor: 'rgba(0, 255, 159, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    labels: {
+                                        color: '#e6edf3',
+                                        font: { family: 'JetBrains Mono' }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    grid: { color: 'rgba(0, 217, 255, 0.1)' },
+                                    ticks: { color: '#8b949e', font: { family: 'JetBrains Mono' } }
+                                },
+                                x: {
+                                    grid: { color: 'rgba(0, 217, 255, 0.1)' },
+                                    ticks: { color: '#8b949e', font: { family: 'JetBrains Mono' } }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                return () => {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                };
+            }, [activeTab]);
+
+            const attackRate = ((stats.attacksDetected / stats.totalPackets) * 100).toFixed(2);
+
+            return (
+                <div className="app-container">
+                    <header className="header">
+                        <h1>IoT IDS</h1>
+                        <p className="subtitle">UNSW-NB15 Network Intrusion Detection</p>
+                    </header>
+
+                    <div className="stats-grid">
+                        <div className="stat-card" style={{'--accent-color': '#00d9ff'}}>
+                            <div className="stat-label">Total Packets Analyzed</div>
+                            <div className="stat-value">{stats.totalPackets.toLocaleString()}</div>
+                            <div className="stat-change">
+                                <span style={{color: '#00ff9f'}}>↑ Live monitoring</span>
+                            </div>
+                        </div>
+                        
+                        <div className="stat-card" style={{'--accent-color': '#ff006e'}}>
+                            <div className="stat-label">Attacks Detected</div>
+                            <div className="stat-value">{stats.attacksDetected.toLocaleString()}</div>
+                            <div className="stat-change">
+                                <span style={{color: '#ff006e'}}>↑ {attackRate}% attack rate</span>
+                            </div>
+                        </div>
+                        
+                        <div className="stat-card" style={{'--accent-color': '#00ff9f'}}>
+                            <div className="stat-label">Normal Traffic</div>
+                            <div className="stat-value">{stats.normalTraffic.toLocaleString()}</div>
+                            <div className="stat-change">
+                                <span style={{color: '#00ff9f'}}>↑ {(100 - parseFloat(attackRate)).toFixed(2)}%</span>
+                            </div>
+                        </div>
+                        
+                        <div className="stat-card" style={{'--accent-color': '#bd00ff'}}>
+                            <div className="stat-label">Detection Accuracy</div>
+                            <div className="stat-value">{stats.accuracy}%</div>
+                            <div className="stat-change">
+                                <span style={{color: '#bd00ff'}}>ML Model Performance</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="content-grid">
+                        <div className="panel">
+                            <div className="panel-header">
+                                <h2 className="panel-title">Live Traffic Monitor</h2>
+                            </div>
+                            
+                            {trafficData.map(traffic => (
+                                <div 
+                                    key={traffic.id} 
+                                    className="traffic-item"
+                                    style={{
+                                        '--item-color': traffic.status === 'attack' ? '#ff006e' : 
+                                                       traffic.status === 'suspicious' ? '#ff8c00' : '#00ff9f'
+                                    }}
+                                >
+                                    <div className="traffic-info">
+                                        <div className="traffic-source">
+                                            {traffic.source} → {traffic.destination}
+                                        </div>
+                                        <div className="traffic-details">
+                                            {traffic.protocol} • {traffic.attackType} • {traffic.timestamp}
+                                        </div>
+                                    </div>
+                                    <span className={`traffic-status status-${traffic.status}`}>
+                                        {traffic.status}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="panel">
+                            <div className="panel-header">
+                                <h2 className="panel-title">Security Alerts</h2>
+                            </div>
+                            
+                            {alerts.map(alert => (
+                                <div 
+                                    key={alert.id} 
+                                    className="alert-item"
+                                    style={{
+                                        '--alert-color': alert.type === 'critical' ? '#ff006e' :
+                                                        alert.type === 'warning' ? '#ff8c00' :
+                                                        alert.type === 'high' ? '#bd00ff' : '#00d9ff',
+                                        '--alert-bg': alert.type === 'critical' ? 'rgba(255, 0, 110, 0.1)' :
+                                                     alert.type === 'warning' ? 'rgba(255, 140, 0, 0.1)' :
+                                                     alert.type === 'high' ? 'rgba(189, 0, 255, 0.1)' : 'rgba(0, 217, 255, 0.1)'
+                                    }}
+                                >
+                                    <div className="alert-icon">{alert.icon}</div>
+                                    <div className="alert-content">
+                                        <div className="alert-title">{alert.title}</div>
+                                        <div className="alert-description">{alert.desc}</div>
+                                    </div>
+                                    <div className="alert-time">{alert.time}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="content-grid">
+                        <div className="panel">
+                            <div className="panel-header">
+                                <h2 className="panel-title">Attack Type Distribution</h2>
+                            </div>
+                            
+                            {Object.entries(ATTACK_TYPES).map(([name, data]) => {
+                                const maxCount = Math.max(...Object.values(ATTACK_TYPES).map(d => d.count));
+                                const percentage = (data.count / maxCount) * 100;
+                                
+                                return (
+                                    <div key={name} className="attack-type">
+                                        <div className="attack-name">{name}</div>
+                                        <div className="attack-bar-container">
+                                            <div 
+                                                className="attack-bar"
+                                                style={{
+                                                    '--bar-color': data.color,
+                                                    '--bar-color-light': data.color + '80',
+                                                    width: `${percentage}%`
+                                                }}
+                                            />
+                                        </div>
+                                        <div 
+                                            className="attack-count"
+                                            style={{'--bar-color': data.color}}
+                                        >
+                                            {data.count.toLocaleString()}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="panel">
+                            <div className="panel-header">
+                                <h2 className="panel-title">Traffic Analytics</h2>
+                                <div className="tabs">
+                                    <button 
+                                        className={`tab ${activeTab === 'live' ? 'active' : ''}`}
+                                        onClick={() => setActiveTab('live')}
+                                    >
+                                        Live
+                                    </button>
+                                    <button 
+                                        className={`tab ${activeTab === '24h' ? 'active' : ''}`}
+                                        onClick={() => setActiveTab('24h')}
+                                    >
+                                        24H
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div className="chart-container">
+                                <canvas ref={chartRef}></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="panel">
+                        <div className="panel-header">
+                            <h2 className="panel-title">UNSW-NB15 Dataset Information</h2>
+                        </div>
+                        
+                        <div className="dataset-info">
+                            <div className="info-row">
+                                <span className="info-label">Total Records</span>
+                                <span className="info-value">2,540,044</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="info-label">Features</span>
+                                <span className="info-value">49 (42 features + 7 metadata)</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="info-label">Attack Categories</span>
+                                <span className="info-value">9 Types</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="info-label">Normal Traffic</span>
+                                <span className="info-value">2,218,761 (87.35%)</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="info-label">Attack Traffic</span>
+                                <span className="info-value">321,283 (12.65%)</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="info-label">Protocol Types</span>
+                                <span className="info-value">TCP, UDP, ICMP, IGMP, etc.</span>
+                            </div>
+                            <div className="info-row">
+                                <span className="info-label">ML Algorithm</span>
+                                <span className="info-value">Random Forest Classifier</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<IoTIDSApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
