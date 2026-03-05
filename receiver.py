@@ -1,18 +1,16 @@
-import socket
+from flask import Flask, request
 
-HOST = "0.0.0.0"
-PORT = 5000
+app = Flask(__name__)
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind((HOST, PORT))
-server.listen()
+@app.route('/')
+def home():
+    return "IoT IDS Server Running"
 
-print("🚀 Waiting for ESP8266 traffic...")
+@app.route('/data', methods=['POST','GET'])
+def receive():
+    data = request.data.decode()
+    print("Received:", data)
+    return "OK"
 
-while True:
-    conn, addr = server.accept()
-    data = conn.recv(1024).decode().strip()
-
-    print("📡 Traffic received:", data)
-
-    conn.close()
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
