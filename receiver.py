@@ -2,14 +2,16 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
+# Test page
 @app.route('/')
 def home():
-    return "IoT IDS Server Running"
+    return "IoT IDS Receiver Running"
 
+# ESP8266 will send data here
 @app.route('/data', methods=['POST','GET'])
 def receive():
     data = request.data.decode()
-    print("Received:", data)
+    print("Traffic received:", data)
     return "OK"
 
 if __name__ == "__main__":
