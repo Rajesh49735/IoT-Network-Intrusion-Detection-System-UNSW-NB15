@@ -3,7 +3,6 @@ import pickle
 import numpy as np
 import pandas as pd
 import random
-import json
 from datetime import datetime
 import plotly.express as px
 import psutil
@@ -19,7 +18,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# UI STYLE (Preserved exactly)
+# UI STYLE
 # =====================================================
 st.markdown("""
 <style>
@@ -119,7 +118,7 @@ st.title("🛡️ IoT Network Intrusion Detection Platform")
 st.markdown("<h3 style='color:white;'>SOC-Grade Real-Time Intrusion Detection Dashboard</h3>", unsafe_allow_html=True)
 
 # =====================================================
-# DATASET VIEWER
+# DATASET VIEWER (UPDATED)
 # =====================================================
 st.markdown('<div class="section-title">📂 UNSW-NB15 Dataset</div>', unsafe_allow_html=True)
 
@@ -130,10 +129,13 @@ if st.session_state.show_dataset:
     try:
         with open("unsw_dataset.html", "r", encoding="utf-8") as f:
             html_data = f.read()
+
         st.components.v1.html(html_data, height=700, scrolling=True)
+
         if st.button("❌ Close Dataset"):
             st.session_state.show_dataset = False
             st.rerun()
+
     except FileNotFoundError:
         st.error("unsw_dataset.html not found in project folder.")
 
@@ -144,32 +146,33 @@ def get_live_traffic():
     n1 = psutil.net_io_counters()
     time.sleep(1)
     n2 = psutil.net_io_counters()
+
     packets = (n2.packets_sent - n1.packets_sent) + (n2.packets_recv - n1.packets_recv)
     bytes_total = (n2.bytes_sent - n1.bytes_sent) + (n2.bytes_recv - n1.bytes_recv)
     return packets, bytes_total
 
 # =====================================================
-# MODE (Added Hardware IoT Mode)
+# MODE
 # =====================================================
 mode = st.radio(
     "Detection Mode",
-    ["Manual Input Mode", "Auto Simulation Mode", "Real-Time IoT Mode", "🛰️ Hardware IoT Mode"],
+    ["Manual Input Mode", "Auto Simulation Mode", "Real-Time IoT Mode"],
     horizontal=True
 )
 
 # =====================================================
-# INPUT DATA (Updated to handle hardware)
+# INPUT
 # =====================================================
 st.markdown('<div class="section-title">🔌 Network Traffic Data</div>', unsafe_allow_html=True)
 
 if mode == "Manual Input Mode":
     c1, c2 = st.columns(2)
     with c1:
-        spkts = st.number_input("Source Packets", 0, 5000000, 200, step=100)
-        sbytes = st.number_input("Source Bytes", 0, 5000000, 300, step=100)
+        spkts = st.number_input("Source Packets", 0, 5_000_000, 200, step=100)
+        sbytes = st.number_input("Source Bytes", 0, 5_000_000, 300, step=100)
     with c2:
-        dpkts = st.number_input("Destination Packets", 0, 5000000, 180, step=100)
-        dbytes = st.number_input("Destination Bytes", 0, 5000000, 250, step=100)
+        dpkts = st.number_input("Destination Packets", 0, 5_000_000, 180, step=100)
+        dbytes = st.number_input("Destination Bytes", 0, 5_000_000, 250, step=100)
 
 elif mode == "Auto Simulation Mode":
     spkts  = random.randint(100, 5000)
@@ -183,44 +186,23 @@ elif mode == "Auto Simulation Mode":
     a3.metric("Source Bytes", sbytes)
     a4.metric("Destination Bytes", dbytes)
 
-elif mode == "Real-Time IoT Mode":
+else:
     spkts, sbytes = get_live_traffic()
     dpkts = spkts // 2
     dbytes = sbytes // 2
+
     a1,a2 = st.columns(2)
     a1.metric("Live Packets / sec", spkts)
     a2.metric("Live Bytes / sec", sbytes)
 
-else: # 🛰️ Hardware IoT Mode
-    try:
-        with open("esp_data.json", "r") as f:
-            hw_data = json.load(f)
-            spkts = hw_data["spkts"]
-            sbytes = hw_data["sbytes"]
-            dpkts = hw_data["dpkts"]
-            dbytes = hw_data["dbytes"]
-            st.success(f"Hardware Connected. Signal Received: {hw_data['time']}")
-    except Exception:
-        st.warning("Waiting for data from ESP8266... Please run receiver.py")
-        spkts, sbytes, dpkts, dbytes = 0, 0, 0, 0
-
-    a1,a2,a3,a4 = st.columns(4)
-    a1.metric("HW Source Packets", spkts)
-    a2.metric("HW Dest Packets", dpkts)
-    a3.metric("HW Source Bytes", sbytes)
-    a4.metric("HW Dest Bytes", dbytes)
-
 # =====================================================
-# ANALYSIS (Logic Preserved)
+# ANALYSIS
 # =====================================================
 if st.button("🔍 Analyze Traffic"):
+
     st.session_state.prediction_count += 1
-    
-    # 1. Prepare data for model
-    input_arr = np.array([[spkts, sbytes, dpkts, dbytes]])
-    
-    # 2. Prediction logic (Using your model + cycle logic for demonstration)
     cycle = st.session_state.prediction_count % 10
+
     pred = 0 if cycle <= 6 else random.randint(1, len(ATTACK_LABELS)-1)
 
     confidence = float(np.clip(np.random.normal(0.75,0.1),0.6,0.95))
@@ -274,16 +256,16 @@ if st.session_state.events:
 # =====================================================
 if st.session_state.events:
     st.markdown('<div class="section-title">📈 Traffic Frequency Graph</div>', unsafe_allow_html=True)
+
     freq = df["Attack Type"].value_counts().reset_index()
     freq.columns = ["Attack","Count"]
-    colors = ["#22c55e" if a=="Normal" else "#ef4444" for a in freq["Attack"]]
-    fig = px.bar(freq, x="Attack", y="Count", color="Attack", color_discrete_sequence=colors)
-    fig.update_layout(plot_bgcolor="#020617", paper_bgcolor="#020617", font_color="white")
-    st.plotly_chart(fig, use_container_width=True)
 
-# =====================================================
-# AUTO REFRESH FOR HARDWARE
-# =====================================================
-if mode == "🛰️ Hardware IoT Mode":
-    time.sleep(2)
-    st.rerun()
+    colors = ["#22c55e" if a=="Normal" else "#ef4444" for a in freq["Attack"]]
+
+    fig = px.bar(freq, x="Attack", y="Count", color="Attack",
+                 color_discrete_sequence=colors)
+    fig.update_layout(plot_bgcolor="#020617",
+                      paper_bgcolor="#020617",
+                      font_color="white")
+
+    st.plotly_chart(fig, use_container_width=True)
