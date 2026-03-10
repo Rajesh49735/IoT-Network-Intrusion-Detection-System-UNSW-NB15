@@ -20,6 +20,11 @@ st.set_page_config(
 )
 
 # =====================================================
+# AUTO REFRESH FOR HARDWARE DATA
+# =====================================================
+st.experimental_rerun
+
+# =====================================================
 # UI STYLE
 # =====================================================
 st.markdown("""
@@ -145,7 +150,7 @@ if st.session_state.show_dataset:
         st.error("unsw_dataset.html not found in project folder.")
 
 # =====================================================
-# REAL TIME TRAFFIC
+# REAL TIME TRAFFIC FUNCTION
 # =====================================================
 def get_live_traffic():
     n1 = psutil.net_io_counters()
@@ -166,7 +171,7 @@ mode = st.radio(
 )
 
 # =====================================================
-# INPUT DATA
+# INPUT
 # =====================================================
 st.markdown('<div class="section-title">🔌 Network Traffic Data</div>', unsafe_allow_html=True)
 
@@ -228,55 +233,6 @@ if st.button("🔍 Analyze Traffic"):
     st.markdown('<div class="section-title">🧠 AI Explanation</div>', unsafe_allow_html=True)
     st.info(AI_EXPLANATION.get(attack))
 
-    st.markdown('<div class="section-title">📊 Detection Metrics</div>', unsafe_allow_html=True)
-    c1,c2,c3 = st.columns(3)
-    c1.metric("Confidence", f"{int(confidence*100)}%")
-    c2.metric("Severity", severity)
-    c3.metric("Risk Score", f"{risk}/100")
-    st.progress(risk/100)
-
-    st.session_state.events.append({
-        "Time": datetime.now().strftime("%H:%M:%S"),
-        "Result": "Normal" if pred==0 else "Intrusion",
-        "Attack Type": attack,
-        "Risk": risk
-    })
-
-# =====================================================
-# TIMELINE
-# =====================================================
-st.markdown('<div class="section-title">🕒 Detection Timeline</div>', unsafe_allow_html=True)
-
-if st.button("🧹 Clear History", type="secondary"):
-    st.session_state.events.clear()
-    st.session_state.prediction_count = 0
-    st.success("History cleared")
-
-if st.session_state.events:
-    df = pd.DataFrame(st.session_state.events)
-    st.dataframe(df, use_container_width=True)
-
-# =====================================================
-# FREQUENCY GRAPH
-# =====================================================
-if st.session_state.events:
-
-    st.markdown('<div class="section-title">📈 Traffic Frequency Graph</div>', unsafe_allow_html=True)
-
-    freq = df["Attack Type"].value_counts().reset_index()
-    freq.columns = ["Attack","Count"]
-
-    colors = ["#22c55e" if a=="Normal" else "#ef4444" for a in freq["Attack"]]
-
-    fig = px.bar(freq, x="Attack", y="Count", color="Attack",
-                 color_discrete_sequence=colors)
-
-    fig.update_layout(plot_bgcolor="#020617",
-                      paper_bgcolor="#020617",
-                      font_color="white")
-
-    st.plotly_chart(fig, use_container_width=True)
-
 # =====================================================
 # HARDWARE ANALYSIS
 # =====================================================
@@ -305,10 +261,10 @@ if st.session_state.hardware_mode:
 
             if latest["label"] == 1:
                 st.error(f"🚨 Intrusion Detected ({latest['confidence']}%)")
-                st.write(f"Device: {latest['device_id']}")
-                st.write(f"Status: {latest['status']}")
+                st.write("Device:", latest["device_id"])
+                st.write("Status:", latest["status"])
             else:
                 st.success("✅ Normal Traffic Detected")
 
     else:
-        st.info("Waiting for ESP / Arduino data...")
+        st.warning("Waiting for ESP / Arduino data...")
