@@ -20,11 +20,6 @@ st.set_page_config(
 )
 
 # =====================================================
-# AUTO REFRESH FOR HARDWARE DATA
-# =====================================================
-st.experimental_rerun
-
-# =====================================================
 # UI STYLE
 # =====================================================
 st.markdown("""
@@ -32,79 +27,31 @@ st.markdown("""
 .stApp {
     background: linear-gradient(180deg,#060b12,#0b1520);
     color:#e8f1ff;
-    font-family: "Segoe UI", system-ui;
-}
-h1 {
-    font-size:3rem;
-    font-weight:800;
-    background: linear-gradient(90deg,#00e5ff,#7c4dff,#00e5ff);
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
 }
 .section-title {
     font-size:1.6rem;
     font-weight:700;
-    color:#e5e7eb;
     margin-top:25px;
-    margin-bottom:10px;
 }
 .card {
     background: rgba(255,255,255,.05);
     border-radius:18px;
     padding:22px;
-    box-shadow:0 18px 55px rgba(0,0,0,.75);
 }
 .attack { background: linear-gradient(135deg,#7f1d1d,#f97316); }
 .normal { background: linear-gradient(135deg,#064e3b,#0284c7); }
-.badge {
-    display:inline-block;
-    padding:6px 14px;
-    border-radius:999px;
-    background:#020617;
-    font-weight:700;
-}
-div.stButton > button:first-child {
-    background: linear-gradient(90deg,#2563eb,#7c3aed);
-    color: white;
-    font-weight: 900;
-    border-radius: 14px;
-    padding: 14px 28px;
-    border: none;
-}
-button[kind="secondary"] {
-    background: linear-gradient(90deg,#f59e0b,#ef4444);
-    color: white;
-    font-weight: 800;
-    border-radius: 12px;
-    padding: 10px 22px;
-    border: none;
-}
-footer {visibility:hidden;}
 </style>
 """, unsafe_allow_html=True)
 
 # =====================================================
 # LOAD MODEL
 # =====================================================
-model = pickle.load(open("models/mlp_multi.pkl", "rb"))
+model = pickle.load(open("models/mlp_multi.pkl","rb"))
 
 ATTACK_LABELS = [
     "Normal","Analysis","Backdoor","DoS","Exploits",
     "Fuzzers","Generic","Reconnaissance","Shellcode","Worms"
 ]
-
-AI_EXPLANATION = {
-    "Normal": "Traffic aligns with learned IoT baseline behavior.",
-    "DoS": "Excessive packet rate suggests service exhaustion.",
-    "Exploits": "Traffic pattern matches vulnerability exploitation.",
-    "Reconnaissance": "Repeated probing detected.",
-    "Backdoor": "Persistent unauthorized communication detected.",
-    "Fuzzers": "Malformed high-frequency inputs observed.",
-    "Generic": "Multiple anomaly indicators triggered.",
-    "Shellcode": "Encoded payload behavior detected.",
-    "Worms": "Lateral propagation behavior identified.",
-    "Analysis": "System probing behavior detected."
-}
 
 # =====================================================
 # SESSION STATE
@@ -115,9 +62,6 @@ if "events" not in st.session_state:
 if "prediction_count" not in st.session_state:
     st.session_state.prediction_count = 0
 
-if "show_dataset" not in st.session_state:
-    st.session_state.show_dataset = False
-
 if "hardware_mode" not in st.session_state:
     st.session_state.hardware_mode = False
 
@@ -125,32 +69,10 @@ if "hardware_mode" not in st.session_state:
 # HEADER
 # =====================================================
 st.title("🛡️ IoT Network Intrusion Detection Platform")
-st.markdown("<h3 style='color:white;'>SOC-Grade Real-Time Intrusion Detection Dashboard</h3>", unsafe_allow_html=True)
+st.subheader("SOC-Grade Real-Time Intrusion Detection Dashboard")
 
 # =====================================================
-# DATASET VIEWER
-# =====================================================
-st.markdown('<div class="section-title">📂 UNSW-NB15 Dataset</div>', unsafe_allow_html=True)
-
-if st.button("📊 Open UNSW-NB15 Dataset"):
-    st.session_state.show_dataset = True
-
-if st.session_state.show_dataset:
-    try:
-        with open("unsw_dataset.html", "r", encoding="utf-8") as f:
-            html_data = f.read()
-
-        st.components.v1.html(html_data, height=700, scrolling=True)
-
-        if st.button("❌ Close Dataset"):
-            st.session_state.show_dataset = False
-            st.rerun()
-
-    except FileNotFoundError:
-        st.error("unsw_dataset.html not found in project folder.")
-
-# =====================================================
-# REAL TIME TRAFFIC FUNCTION
+# TRAFFIC FUNCTION
 # =====================================================
 def get_live_traffic():
     n1 = psutil.net_io_counters()
@@ -166,105 +88,143 @@ def get_live_traffic():
 # =====================================================
 mode = st.radio(
     "Detection Mode",
-    ["Manual Input Mode", "Auto Simulation Mode", "Real-Time IoT Mode"],
+    ["Manual Input Mode","Auto Simulation Mode","Real-Time IoT Mode"],
     horizontal=True
 )
 
 # =====================================================
-# INPUT
+# INPUT SECTION
 # =====================================================
-st.markdown('<div class="section-title">🔌 Network Traffic Data</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">🔌 Network Traffic Data</div>',unsafe_allow_html=True)
 
 if mode == "Manual Input Mode":
-    c1, c2 = st.columns(2)
+
+    c1,c2 = st.columns(2)
+
     with c1:
-        spkts = st.number_input("Source Packets", 0, 5_000_000, 200, step=100)
-        sbytes = st.number_input("Source Bytes", 0, 5_000_000, 300, step=100)
+        spkts = st.number_input("Source Packets",0,5000000,200)
+        sbytes = st.number_input("Source Bytes",0,5000000,300)
+
     with c2:
-        dpkts = st.number_input("Destination Packets", 0, 5_000_000, 180, step=100)
-        dbytes = st.number_input("Destination Bytes", 0, 5_000_000, 250, step=100)
+        dpkts = st.number_input("Destination Packets",0,5000000,180)
+        dbytes = st.number_input("Destination Bytes",0,5000000,250)
 
 elif mode == "Auto Simulation Mode":
-    spkts  = random.randint(100, 5000)
-    dpkts  = random.randint(100, 5000)
-    sbytes = random.randint(1000, 80000)
-    dbytes = random.randint(1000, 80000)
+
+    spkts = random.randint(100,5000)
+    dpkts = random.randint(100,5000)
+    sbytes = random.randint(1000,80000)
+    dbytes = random.randint(1000,80000)
 
     a1,a2,a3,a4 = st.columns(4)
-    a1.metric("Source Packets", spkts)
-    a2.metric("Destination Packets", dpkts)
-    a3.metric("Source Bytes", sbytes)
-    a4.metric("Destination Bytes", dbytes)
+
+    a1.metric("Source Packets",spkts)
+    a2.metric("Destination Packets",dpkts)
+    a3.metric("Source Bytes",sbytes)
+    a4.metric("Destination Bytes",dbytes)
 
 else:
-    spkts, sbytes = get_live_traffic()
-    dpkts = spkts // 2
-    dbytes = sbytes // 2
+
+    spkts,sbytes = get_live_traffic()
+    dpkts = spkts//2
+    dbytes = sbytes//2
 
     a1,a2 = st.columns(2)
-    a1.metric("Live Packets / sec", spkts)
-    a2.metric("Live Bytes / sec", sbytes)
+
+    a1.metric("Live Packets/sec",spkts)
+    a2.metric("Live Bytes/sec",sbytes)
 
 # =====================================================
-# ANALYSIS
+# ANALYSIS BUTTON
 # =====================================================
 if st.button("🔍 Analyze Traffic"):
 
     st.session_state.prediction_count += 1
+
     cycle = st.session_state.prediction_count % 10
-
-    pred = 0 if cycle <= 6 else random.randint(1, len(ATTACK_LABELS)-1)
-
-    confidence = float(np.clip(np.random.normal(0.75,0.1),0.6,0.95))
-    risk = int(confidence * 100)
+    pred = 0 if cycle <= 6 else random.randint(1,len(ATTACK_LABELS)-1)
 
     attack = ATTACK_LABELS[pred]
+
     severity = "LOW" if pred==0 else "HIGH"
     card = "normal" if pred==0 else "attack"
 
     st.markdown(f"""
     <div class="card {card}">
-        <h3>{"✅ Normal Traffic" if pred==0 else "🚨 Intrusion Detected"}</h3>
-        <span class="badge">{attack}</span>
-        <p>Severity Level: <b>{severity}</b></p>
+    <h3>{"✅ Normal Traffic" if pred==0 else "🚨 Intrusion Detected"}</h3>
+    <b>{attack}</b>
+    <p>Severity Level: {severity}</p>
     </div>
-    """, unsafe_allow_html=True)
+    """,unsafe_allow_html=True)
 
-    st.markdown('<div class="section-title">🧠 AI Explanation</div>', unsafe_allow_html=True)
-    st.info(AI_EXPLANATION.get(attack))
+    st.session_state.events.append({
+        "Time":datetime.now().strftime("%H:%M:%S"),
+        "Attack":attack
+    })
+
+# =====================================================
+# TIMELINE
+# =====================================================
+st.markdown('<div class="section-title">🕒 Detection Timeline</div>',unsafe_allow_html=True)
+
+if st.session_state.events:
+
+    df = pd.DataFrame(st.session_state.events)
+    st.dataframe(df,use_container_width=True)
+
+# =====================================================
+# GRAPH
+# =====================================================
+if st.session_state.events:
+
+    st.markdown('<div class="section-title">📈 Attack Frequency</div>',unsafe_allow_html=True)
+
+    freq = df["Attack"].value_counts().reset_index()
+    freq.columns=["Attack","Count"]
+
+    fig = px.bar(freq,x="Attack",y="Count",color="Attack")
+    st.plotly_chart(fig,use_container_width=True)
 
 # =====================================================
 # HARDWARE ANALYSIS
 # =====================================================
-st.markdown('<div class="section-title">🔧 Hardware Intrusion Detection</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">🔧 Hardware Intrusion Detection</div>',unsafe_allow_html=True)
 
 if st.button("🔌 Hardware Analysis (ESP / Arduino)"):
     st.session_state.hardware_mode = True
 
 if st.session_state.hardware_mode:
 
-    LOG_FILE = "live_predictions.json"
+    LOG_FILE="live_predictions.json"
 
     if os.path.exists(LOG_FILE):
 
-        with open(LOG_FILE,"r") as f:
-            data = json.load(f)
+        try:
 
-        if len(data)>0:
+            with open(LOG_FILE,"r") as f:
+                data=json.load(f)
 
-            df_hw = pd.DataFrame(data)
+            if len(data)>0:
 
-            st.markdown("### 📡 Live IoT Traffic")
-            st.dataframe(df_hw.tail(10), use_container_width=True)
+                df_hw=pd.DataFrame(data)
 
-            latest = df_hw.iloc[-1]
+                st.subheader("📡 Live IoT Traffic")
+                st.dataframe(df_hw.tail(10),use_container_width=True)
 
-            if latest["label"] == 1:
-                st.error(f"🚨 Intrusion Detected ({latest['confidence']}%)")
-                st.write("Device:", latest["device_id"])
-                st.write("Status:", latest["status"])
+                latest=df_hw.iloc[-1]
+
+                if latest["label"]==1:
+                    st.error(f"🚨 Intrusion Detected ({latest['confidence']}%)")
+                    st.write("Device:",latest["device_id"])
+                    st.write("Status:",latest["status"])
+                else:
+                    st.success("✅ Normal Traffic Detected")
+
             else:
-                st.success("✅ Normal Traffic Detected")
+                st.info("Waiting for hardware traffic...")
+
+        except:
+            st.warning("Hardware data not ready")
 
     else:
-        st.warning("Waiting for ESP / Arduino data...")
+        st.warning("live_predictions.json not found. Start receiver.py first.")
