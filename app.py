@@ -250,51 +250,75 @@ if st.session_state.events:
     st.plotly_chart(fig, use_container_width=True)
 
 # =====================================================
-# HARDWARE INTRUSION DETECTION (UPDATED)
+# HARDWARE INTRUSION DETECTION
 # =====================================================
 st.markdown('<div class="section-title">🛠 Hardware Intrusion Detection</div>', unsafe_allow_html=True)
 
 NGROK_URL = "https://medullated-wally-overwhelmedly.ngrok-free.dev/predictions"
 
+if "hardware_rows" not in st.session_state:
+    st.session_state.hardware_rows = []
+
 if "hw_index" not in st.session_state:
     st.session_state.hw_index = 0
 
-if st.button("🔌 Hardware Analysis (ESP / Arduino)"):
+col1, col2 = st.columns([3,1])
 
-    try:
-        response = requests.get(NGROK_URL)
+with col1:
+    if st.button("🔌 Hardware Analysis (ESP / Arduino)"):
 
-        if response.status_code == 200:
+        try:
+            response = requests.get(NGROK_URL)
 
-            data = response.json()
+            if response.status_code == 200:
 
-            if len(data) == 0:
-                st.info("Waiting for hardware traffic...")
-            else:
+                data = response.json()
 
-                index = st.session_state.hw_index % len(data)
-                row = data[index]
+                if len(data) > 0:
 
-                df_hw = pd.DataFrame([row])
+                    index = st.session_state.hw_index % len(data)
+                    row = data[index]
 
-                st.dataframe(
-                    df_hw[["timestamp","device_id","status","confidence"]],
-                    use_container_width=True
-                )
+                    st.session_state.hardware_rows.append(row)
+                    st.session_state.hw_index += 1
 
-                ATTACK_TYPES = ["Normal","DoS","Fuzzers","Reconnaissance","Exploits","Backdoor","Shellcode","Worms"]
+        except:
+            st.error("Hardware server not running.")
 
-                attack_type = random.choice(ATTACK_TYPES)
+with col2:
+    if st.button("🧹 Clear Hardware Data"):
+        st.session_state.hardware_rows = []
+        st.session_state.hw_index = 0
 
-                if row["status"] == "INTRUSION DETECTED":
-                    st.error(f"🚨 {attack_type} attack detected from {row['device_id']} (Confidence {row['confidence']}%)")
-                else:
-                    st.success(f"✅ Normal traffic from {row['device_id']}")
+# display table
+if len(st.session_state.hardware_rows) > 0:
 
-                st.session_state.hw_index += 1
+    df_hw = pd.DataFrame(st.session_state.hardware_rows)
 
-        else:
-            st.error("Failed to connect to hardware server")
+    st.dataframe(
+        df_hw[["timestamp","device_id","status","confidence"]],
+        use_container_width=True
+    )
 
-    except:
-        st.error("Hardware server not running. Start receiver.py and ngrok.")
+    last = st.session_state.hardware_rows[-1]
+
+    ATTACK_TYPES = [
+        "Normal","DoS","Fuzzers","Reconnaissance",
+        "Exploits","Backdoor","Shellcode","Worms"
+    ]
+
+    attack_type = random.choice(ATTACK_TYPES)
+
+    if last["status"] == "Normal":
+
+        st.success(
+            f"✅ Normal traffic from {last['device_id']} "
+            f"(Confidence {last['confidence']:.2f}%)"
+        )
+
+    else:
+
+        st.error(
+            f"🚨 {attack_type} attack detected from {last['device_id']} "
+            f"(Confidence {last['confidence']:.2f}%)"
+        )
