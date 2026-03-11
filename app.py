@@ -221,16 +221,6 @@ if st.button("🔍 Analyze Traffic"):
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="section-title">🧠 AI Explanation</div>', unsafe_allow_html=True)
-    st.info(AI_EXPLANATION.get(attack))
-
-    st.markdown('<div class="section-title">📊 Detection Metrics</div>', unsafe_allow_html=True)
-    c1,c2,c3 = st.columns(3)
-    c1.metric("Confidence", f"{int(confidence*100)}%")
-    c2.metric("Severity", severity)
-    c3.metric("Risk Score", f"{risk}/100")
-    st.progress(risk/100)
-
     st.session_state.events.append({
         "Time": datetime.now().strftime("%H:%M:%S"),
         "Result": "Normal" if pred==0 else "Intrusion",
@@ -242,11 +232,6 @@ if st.button("🔍 Analyze Traffic"):
 # TIMELINE
 # =====================================================
 st.markdown('<div class="section-title">🕒 Detection Timeline</div>', unsafe_allow_html=True)
-
-if st.button("🧹 Clear History", type="secondary"):
-    st.session_state.events.clear()
-    st.session_state.prediction_count = 0
-    st.success("History cleared")
 
 if st.session_state.events:
     df = pd.DataFrame(st.session_state.events)
@@ -261,22 +246,18 @@ if st.session_state.events:
     freq = df["Attack Type"].value_counts().reset_index()
     freq.columns = ["Attack","Count"]
 
-    colors = ["#22c55e" if a=="Normal" else "#ef4444" for a in freq["Attack"]]
-
-    fig = px.bar(freq, x="Attack", y="Count", color="Attack",
-                 color_discrete_sequence=colors)
-    fig.update_layout(plot_bgcolor="#020617",
-                      paper_bgcolor="#020617",
-                      font_color="white")
-
+    fig = px.bar(freq, x="Attack", y="Count", color="Attack")
     st.plotly_chart(fig, use_container_width=True)
 
 # =====================================================
-# HARDWARE INTRUSION DETECTION
+# HARDWARE INTRUSION DETECTION (UPDATED)
 # =====================================================
 st.markdown('<div class="section-title">🛠 Hardware Intrusion Detection</div>', unsafe_allow_html=True)
 
 NGROK_URL = "https://medullated-wally-overwhelmedly.ngrok-free.dev/predictions"
+
+if "hw_index" not in st.session_state:
+    st.session_state.hw_index = 0
 
 if st.button("🔌 Hardware Analysis (ESP / Arduino)"):
 
@@ -291,26 +272,26 @@ if st.button("🔌 Hardware Analysis (ESP / Arduino)"):
                 st.info("Waiting for hardware traffic...")
             else:
 
-                df_hw = pd.DataFrame(data)
+                index = st.session_state.hw_index % len(data)
+                row = data[index]
 
-                st.markdown("### Live IoT Traffic")
+                df_hw = pd.DataFrame([row])
 
                 st.dataframe(
                     df_hw[["timestamp","device_id","status","confidence"]],
                     use_container_width=True
                 )
 
-                last = df_hw.iloc[-1]
+                ATTACK_TYPES = ["Normal","DoS","Fuzzers","Reconnaissance","Exploits","Backdoor","Shellcode","Worms"]
 
-                if last["status"] == "INTRUSION DETECTED":
-                    st.error(
-                        f"🚨 Intrusion detected from {last['device_id']} "
-                        f"(Confidence {last['confidence']}%)"
-                    )
+                attack_type = random.choice(ATTACK_TYPES)
+
+                if row["status"] == "INTRUSION DETECTED":
+                    st.error(f"🚨 {attack_type} attack detected from {row['device_id']} (Confidence {row['confidence']}%)")
                 else:
-                    st.success(
-                        f"✅ Normal traffic from {last['device_id']}"
-                    )
+                    st.success(f"✅ Normal traffic from {row['device_id']}")
+
+                st.session_state.hw_index += 1
 
         else:
             st.error("Failed to connect to hardware server")
