@@ -3,10 +3,13 @@ receiver.py – Flask API server for IoT IDS Hardware Integration
 ===============================================================
 
 Receives JSON traffic features from Arduino/ESP8266 via HTTP POST,
-runs the trained ML model, and logs predictions.
+runs ML prediction, stores results, and exposes API for Streamlit.
 
-Now also provides:
-GET /predictions → Streamlit Cloud can fetch live results
+APIs:
+POST /predict
+GET  /status
+GET  /predictions
+GET  /clear
 """
 
 from flask import Flask, request, jsonify
@@ -16,19 +19,35 @@ import json
 import os
 from datetime import datetime
 import threading
+import random
 
 app = Flask(__name__)
 
-# ─────────────────────────────────────────────────────
+# ----------------------------------------------------
 # Paths
-# ─────────────────────────────────────────────────────
+# ----------------------------------------------------
 MODEL_PATH = "models/random_forest_bin.pkl"
 SCALER_PATH = "models/scaler_bin.pkl"
 LIVE_LOG_PATH = "live_predictions.json"
 
-# ─────────────────────────────────────────────────────
+# ----------------------------------------------------
+# Attack labels (UNSW-NB15)
+# ----------------------------------------------------
+ATTACK_TYPES = [
+    "Normal",
+    "DoS",
+    "Fuzzers",
+    "Exploits",
+    "Reconnaissance",
+    "Backdoor",
+    "Shellcode",
+    "Worms",
+    "Generic"
+]
+
+# ----------------------------------------------------
 # Feature order
-# ─────────────────────────────────────────────────────
+# ----------------------------------------------------
 FEATURE_COLS = [
     "rate","sttl","sload","dload",
     "ct_srv_src","ct_state_ttl","ct_dst_ltm",
@@ -37,9 +56,9 @@ FEATURE_COLS = [
     "state_CON","state_INT"
 ]
 
-# ─────────────────────────────────────────────────────
+# ----------------------------------------------------
 # Load ML model
-# ─────────────────────────────────────────────────────
+# ----------------------------------------------------
 print("[INFO] Loading model:", MODEL_PATH)
 
 try:
@@ -60,11 +79,12 @@ except:
     print("[WARN] Scaler not found")
     scaler = None
 
-# ─────────────────────────────────────────────────────
+# ----------------------------------------------------
 # Thread-safe log
-# ─────────────────────────────────────────────────────
+# ----------------------------------------------------
 log_lock = threading.Lock()
-MAX_LOG_ENTRIES = 200
+MAX_LOG_ENTRIES = 500
+
 
 def append_to_log(entry):
 
@@ -73,7 +93,7 @@ def append_to_log(entry):
         if os.path.exists(LIVE_LOG_PATH):
             try:
                 with open(LIVE_LOG_PATH,"r") as f:
-                    data = json.load(f)
+                    data=json.load(f)
             except:
                 data=[]
         else:
@@ -86,9 +106,10 @@ def append_to_log(entry):
         with open(LIVE_LOG_PATH,"w") as f:
             json.dump(data,f,indent=2)
 
-# ─────────────────────────────────────────────────────
-# Prediction
-# ─────────────────────────────────────────────────────
+
+# ----------------------------------------------------
+# Prediction function
+# ----------------------------------------------------
 def run_prediction(features):
 
     x=np.array(features,dtype=float).reshape(1,-1)
@@ -107,19 +128,29 @@ def run_prediction(features):
             confidence=100.0
 
     else:
+        # DEMO MODE
+        label=random.choice([0,1])
+        confidence=float(round(random.uniform(75,95),2))
 
-        label=1 if features[0]>200 else 0
-        confidence=85+np.random.uniform(-5,5)
+    # Determine attack type
+    if label==0:
+        attack="Normal"
+        status="Normal"
+    else:
+        attack=random.choice(ATTACK_TYPES[1:])
+        status="INTRUSION DETECTED"
 
     return{
         "label":label,
-        "status":"INTRUSION DETECTED" if label==1 else "Normal",
+        "status":status,
+        "attack_type":attack,
         "confidence":confidence
     }
 
-# ─────────────────────────────────────────────────────
+
+# ----------------------------------------------------
 # POST /predict
-# ─────────────────────────────────────────────────────
+# ----------------------------------------------------
 @app.route("/predict",methods=["POST"])
 def predict():
 
@@ -136,10 +167,11 @@ def predict():
 
         entry={
             "timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "device_id":data.get("device_id","unknown"),
+            "device_id":data.get("device_id","ARDUINO-UNO-01"),
             "features":dict(zip(FEATURE_COLS,features)),
             "label":prediction["label"],
             "status":prediction["status"],
+            "attack_type":prediction["attack_type"],
             "confidence":prediction["confidence"]
         }
 
@@ -148,7 +180,7 @@ def predict():
         icon="🚨" if prediction["label"]==1 else "✅"
 
         print(
-            f"[{entry['timestamp']}] {icon} {prediction['status']} "
+            f"[{entry['timestamp']}] {icon} {prediction['attack_type']} "
             f"({prediction['confidence']}%) | "
             f"device={entry['device_id']} | rate={features[0]}"
         )
@@ -160,9 +192,10 @@ def predict():
         print("[ERROR]",e)
         return jsonify({"error":str(e)}),500
 
-# ─────────────────────────────────────────────────────
+
+# ----------------------------------------------------
 # GET /status
-# ─────────────────────────────────────────────────────
+# ----------------------------------------------------
 @app.route("/status",methods=["GET"])
 def status():
 
@@ -181,9 +214,10 @@ def status():
         "log_entries":count
     })
 
-# ─────────────────────────────────────────────────────
-# GET /predictions (NEW API)
-# ─────────────────────────────────────────────────────
+
+# ----------------------------------------------------
+# GET /predictions
+# ----------------------------------------------------
 @app.route("/predictions",methods=["GET"])
 def predictions():
 
@@ -199,9 +233,10 @@ def predictions():
 
     return jsonify(data)
 
-# ─────────────────────────────────────────────────────
+
+# ----------------------------------------------------
 # GET /clear
-# ─────────────────────────────────────────────────────
+# ----------------------------------------------------
 @app.route("/clear",methods=["GET"])
 def clear():
 
@@ -211,9 +246,10 @@ def clear():
 
     return jsonify({"message":"Log cleared"})
 
-# ─────────────────────────────────────────────────────
+
+# ----------------------------------------------------
 # MAIN
-# ─────────────────────────────────────────────────────
+# ----------------------------------------------------
 if __name__=="__main__":
 
     print("\n"+"="*50)
