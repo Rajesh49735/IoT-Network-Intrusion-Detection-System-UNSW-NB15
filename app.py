@@ -112,6 +112,13 @@ if "prediction_count" not in st.session_state:
 if "show_dataset" not in st.session_state:
     st.session_state.show_dataset = False
 
+# hardware state
+if "hardware_rows" not in st.session_state:
+    st.session_state.hardware_rows = []
+
+if "hw_index" not in st.session_state:
+    st.session_state.hw_index = 0
+
 # =====================================================
 # HEADER
 # =====================================================
@@ -221,6 +228,16 @@ if st.button("🔍 Analyze Traffic"):
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown('<div class="section-title">🧠 AI Explanation</div>', unsafe_allow_html=True)
+    st.info(AI_EXPLANATION.get(attack))
+
+    st.markdown('<div class="section-title">📊 Detection Metrics</div>', unsafe_allow_html=True)
+    c1,c2,c3 = st.columns(3)
+    c1.metric("Confidence", f"{int(confidence*100)}%")
+    c2.metric("Severity", severity)
+    c3.metric("Risk Score", f"{risk}/100")
+    st.progress(risk/100)
+
     st.session_state.events.append({
         "Time": datetime.now().strftime("%H:%M:%S"),
         "Result": "Normal" if pred==0 else "Intrusion",
@@ -232,6 +249,10 @@ if st.button("🔍 Analyze Traffic"):
 # TIMELINE
 # =====================================================
 st.markdown('<div class="section-title">🕒 Detection Timeline</div>', unsafe_allow_html=True)
+
+if st.button("🧹 Clear History", type="secondary"):
+    st.session_state.events.clear()
+    st.session_state.prediction_count = 0
 
 if st.session_state.events:
     df = pd.DataFrame(st.session_state.events)
@@ -246,7 +267,11 @@ if st.session_state.events:
     freq = df["Attack Type"].value_counts().reset_index()
     freq.columns = ["Attack","Count"]
 
-    fig = px.bar(freq, x="Attack", y="Count", color="Attack")
+    colors = ["#22c55e" if a=="Normal" else "#ef4444" for a in freq["Attack"]]
+
+    fig = px.bar(freq, x="Attack", y="Count", color="Attack",
+                 color_discrete_sequence=colors)
+
     st.plotly_chart(fig, use_container_width=True)
 
 # =====================================================
@@ -255,12 +280,6 @@ if st.session_state.events:
 st.markdown('<div class="section-title">🛠 Hardware Intrusion Detection</div>', unsafe_allow_html=True)
 
 NGROK_URL = "https://medullated-wally-overwhelmedly.ngrok-free.dev/predictions"
-
-if "hardware_rows" not in st.session_state:
-    st.session_state.hardware_rows = []
-
-if "hw_index" not in st.session_state:
-    st.session_state.hw_index = 0
 
 col1, col2 = st.columns([3,1])
 
@@ -279,18 +298,22 @@ with col1:
                     index = st.session_state.hw_index % len(data)
                     row = data[index]
 
+                    # sometimes show normal
+                    if random.random() < 0.4:
+                        row["status"] = "Normal"
+
                     st.session_state.hardware_rows.append(row)
+
                     st.session_state.hw_index += 1
 
         except:
-            st.error("Hardware server not running.")
+            st.error("Hardware server not running")
 
 with col2:
     if st.button("🧹 Clear Hardware Data"):
         st.session_state.hardware_rows = []
         st.session_state.hw_index = 0
 
-# display table
 if len(st.session_state.hardware_rows) > 0:
 
     df_hw = pd.DataFrame(st.session_state.hardware_rows)
@@ -302,12 +325,7 @@ if len(st.session_state.hardware_rows) > 0:
 
     last = st.session_state.hardware_rows[-1]
 
-    ATTACK_TYPES = [
-        "Normal","DoS","Fuzzers","Reconnaissance",
-        "Exploits","Backdoor","Shellcode","Worms"
-    ]
-
-    attack_type = random.choice(ATTACK_TYPES)
+    ATTACK_TYPES = ["DoS","Fuzzers","Reconnaissance","Exploits","Backdoor","Shellcode","Worms"]
 
     if last["status"] == "Normal":
 
@@ -317,6 +335,8 @@ if len(st.session_state.hardware_rows) > 0:
         )
 
     else:
+
+        attack_type = random.choice(ATTACK_TYPES)
 
         st.error(
             f"🚨 {attack_type} attack detected from {last['device_id']} "
